@@ -53,3 +53,7 @@ htmlcov/
 # *-multi-choice.md
 # *-cloze.md
 # *-matching.md
+
+# Local helper scripts (developer-specific)
+runapp.cmd
+rundev.cmd
