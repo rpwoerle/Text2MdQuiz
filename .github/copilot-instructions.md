@@ -40,7 +40,7 @@ python text2mdquiz.py input.txt [--questions 4] [--points 4] [--answers 2 3] [--
 python text2mdquiz.py input.txt [--questions 4] [--points 4] [--answers 2 3] [--output quiz.md]
 ```
 Required args: input file path
-Defaults: `--questions 4`, `--points 4`, `--answers 2 3` (2 correct, 3 incorrect), `--output <input-stem>-questions.md`
+Defaults: `--questions 4`, `--points 4`, `--answers 2 3` (2 correct, 3 incorrect), `--output <input-stem>-<type>.md` (e.g., `-multi-choice.md`, `-cloze.md`, `-matching.md`)
 
 ## OpenAI Integration
 - Use OpenAI Python SDK v1: `from openai import OpenAI` then `client = OpenAI()` and `client.chat.completions.create(model="gpt-5", messages=[...])`

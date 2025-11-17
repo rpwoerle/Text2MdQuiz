@@ -69,13 +69,13 @@ See `samples/` directory for example input text and generated quizzes.
 
 ```bash
 # Multi-choice: 5 questions, 3 correct + 4 incorrect answers each
-python text2mdquiz.py samples/sample_text.txt --questions 5 --answers 3 4
+python text2mdquiz.py samples/example-physics-de.txt --questions 5 --answers 3 4
 
 # Cloze: 2 questions with 6 blanks each
-python text2mdquiz.py samples/sample_text.txt --type cl --questions 2 --gaps 6
+python text2mdquiz.py samples/example-physics-de.txt --type cl --questions 2 --gaps 6
 
 # Matching: 1 question with 8 pairs
-python text2mdquiz.py samples/sample_text.txt --type ma --pairs 8
+python text2mdquiz.py samples/example-physics-de.txt --type ma --pairs 8
 ```
 
 ## Command-Line Options
