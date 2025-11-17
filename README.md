@@ -1,7 +1,7 @@
 # Text2MdQuiz
 
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
 Python CLI tool to generate educational quizzes from text files using OpenAI's GPT API. Supports **Multi-choice**, **Cloze** (Lückentext/fill-in-the-blank), and **Matching** questions. The quiz language automatically matches the input text (multi-language support, especially German).
 
@@ -180,7 +180,9 @@ Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for gui
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0) - see the [LICENSE](LICENSE) file for details.
+
+This is free educational software. You may use, share, and adapt it for non-commercial educational purposes with attribution.
 
 ## Troubleshooting
 
