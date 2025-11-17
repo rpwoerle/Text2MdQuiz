@@ -1,0 +1,146 @@
+Im zweiten Clip zur Elektrostatik fühlen wir der Ladung noch mehr auf den Zahn.
+Wir zeigen euch, was es mit den verschiedenen elektrischen Ladungen auf sich hat,
+was Ladungstrennung bedeutet, dass Influenz keine Krankheit ist
+und geben euch einen ersten Einstieg in das elektrische Feld.
+Wir wissen ja, dass es zwei verschiedene Arten von Ladungen gibt, positive und negative.
+Aber woher kommen diese Ladungen?
+Wie stellen wir uns das mit den positiven und negativen Ladungen vor?
+In unserem Atomodell, von dem ihr möglicherweise mal in Chemie gehört habt,
+gibt es einen winzigen, dafür aber tierisch schweren, positiv geladenen Kern
+und noch winzigeren, negativ geladene Teilchen, die um den Kern herumrasen.
+Diese negativ geladenen Teilchen heißen Elektronen und die sind die Träger der negativen Ladung.
+Nun besteht ein Körper, zum Beispiel wie dieses PVC-Rohr hier,
+ja nicht nur aus einem einzigen, sondern aus unzählig vielen Atomen
+und die sind fest angeordnet.
+Die Kerne sitzen vereinfacht gesagt fest an ihren Positionen,
+während die kleinen Elektronen durchaus beweglich und agil um die Kerne herumflitzen.
+Wenn wir, so wie in der letzten Folge, zwei Körper aneinander reiben und dadurch aufladen,
+dann streifen wir die Elektronen vom einen Körper, die an der Oberfläche sitzen,
+auf den anderen Körper ab.
+Nun hat der eine Körper weniger Elektronen als vor der Aufladung, also einen Elektronenmangel
+und erscheint uns dadurch positiv geladen.
+Die Elektronen sind auf den anderen Körper übergegangen,
+der nun einen Elektronenüberschuss hat und so negativ geladen ist.
+Es bewegen sich in der Elektrostatik also immer nur Elektronen,
+die negativen Ladungsträger hin und her.
+Da die positiven Ladungsträger ja fest und schwer sind,
+zumindest im Vergleich zu den kleinen Elektronen,
+lädt man einen neutralen Körper positiv auf, indem man ihn Elektronen zockt.
+Er hat gleich viele positive Ladungsträger wie vorher, aber nun weniger Elektronen.
+Und genau das bedeutet positiv aufgeladen.
+Körper, die keine elektrische Ladung zeigen, also elektrisch neutral sind,
+haben gleich viele positive wie negative Ladungsträger.
+Erst wenn wir ein paar Elektronen klauen oder dazu packen,
+bekommt ein neutraler Körper eine positive oder negative Ladung.
+Wir können verschiedene Materialien dahingehend einteilen,
+wie sie sich gegenüber Ladung verhalten.
+Grob kann man erst mal zwischen Leiter und Nichtleiter unterscheiden.
+Ein elektrischer Leiter ist ein Material, durch das Ladung fließen kann.
+Das heißt, die Ladungsträger können sich darin frei bewegen.
+Ein elektrischer Nichtleiter oder auch Isolator hat diese Eigenschaft nicht.
+Er kann nicht oder nur sehr schlecht Ladungsträger transportieren.
+Dennoch kann er Ladung an seiner Oberfläche speichern.
+Das kennen wir von der Reibungselectricität.
+Das heißt, auch Nichtleiter können sich aufladen wie unser Glasstab oder unser Rohr.
+Ein Beispiel für ein Material, das sehr gut elektrisch leitet, sind Metalle.
+Die Atome von Metallen haben salopp gesagt mindestens ein Elektron über.
+Die Kerne hängen nicht so sehr an den Elektronen, die am weitesten vom Kern entfernt sind.
+Jedes Metallatom lässt dann eins oder auch mehrere dieser äußersten Elektronen frei.
+Die freien Elektronen können dann nach Lust und Laune durch das Metall flitzen.
+In so einem Metall, das ja aus unfassbar vielen Atomen besteht,
+herrscht also auch ein riesengetünnel an freien Elektronen.
+Jetzt kommt unsere Glimmlampe zum Einsatz.
+Eine Glimmlampe dient nun als Nachweis, dass Ladung vorhanden ist.
+Finden wir Ladung, so fließt diese Ladung durch die Glimmlampe und bringt die dabei zum Leuchten.
+Wenn unser Gegenstand positiv geladen ist, also ein Elektronenmangel hat,
+dann holt sich der Gegenstand bei Kontakt die Elektronen von mir.
+Diese fließen dann durch die Glimmlampe, bringen sie zum Leuchten
+und sorgen dann dafür, dass die Stelle wieder elektrisch-neutral ist.
+Ist ein Körper negativ geladen, dann fließen die Elektronen aus den Überschuss
+durch die Lampe zu mir ab und bringen dann auch das Lämpchen zum Leuchten.
+In jedem Fall ist die Stelle, die wir untersuchen, nach dem Leuchten wieder elektrisch-neutral.
+Denn hier hat ein Ladungsausgleich stattgefunden.
+Wenn Elektronen in Metallen frei beweglich sind,
+dann hat das ja sicherlich die eine oder andere Auswirkung.
+Hier haben wir einen aufgeladenen PVC-Stab.
+Den bringen wir in die Nähe vom Elektroskop und bam!
+Man sieht einen Ausschlag, auch wenn der Stab das Elektroskop gar nicht berührt.
+Entfernt sich der Stab wieder, dann verschwindet auch der Ausschlag.
+Elektrische Ladung ohne dass sich etwas berührt?
+Zweifelsohne-Einfall für...
+Elektro! Ich kann Sachen bewegen, ohne dass ich sie berühre!
+Na ja, nicht ganz.
+Was ihr hier seht, ist nicht das Machtwerk eines Superhelms,
+sondern das nennt man in der Physik Influenz.
+Halten wir das PVC-Rohr nah an das Elektroskop, dann schlägt es aus.
+Nehmen wir es wieder weg, dann ist auch der Ausschlag weg.
+Noch mal dran und nochmal wieder weg.
+Der geladene Stab beeinflusst ziemlich offensichtlich die Ladungen
+in unserem Elektroskop.
+Das ist schließlich aus Metall.
+Und in Metallen gibt es ja einen Schwarm von frei beweglichen Elektronen.
+Da sich gleichartige Ladungen ja abstoßen und verschiedenartige anziehen,
+werden die freien Elektronen im Elektroskop von der sich annähernden
+negativen Röhre nach unten gedrückt.
+Da stoßen sich dann die beiden Alufähnchen ab.
+Und wenn ich den PVC-Stab wieder wegnehme,
+dann können die Elektronen wieder an ihren ursprünglichen Ort zurück
+und sich wieder gleichmäßig im ganzen Elektroskop verteilen.
+Und dann sehen wir keinen Ausschlag mehr.
+Influenz kann man bei allen metallischen Objekten beobachten,
+wie zum Beispiel auch bei dieser Dose hier.
+Mit einem aufgeladenen PVC-Rohr kann ich die nämlich
+über die Werkbank ziehen, ohne sie zu berühren.
+Man könnte meinen, dass sei das Machwerk von ...
+Elektro. Ich kann Sachen bewegen, ohne sie anzufasseln.
+Ne, Quatsch, das ist Influenz.
+Denn auch hier verschieben sich die Ladungen in der Dose.
+Der negativ geladene Stab drückt die freien Elektronen in der Dose
+von sich weg, so dass die Seite, die nun zum Stab zeigt, positiv geladen ist.
+Und gegensätzliche Ladung ziehen sich ja an
+und schon rollt die Dose auf den Stab zu.
+Mit diesem Versuchsaufbau können wir tatsächlich nachweisen,
+dass sich Elektronen in Metallen verschieben.
+Hier sind zwei Alokugeln in Kontakt.
+Das heißt, für Elektronen bilden die vereinfacht gesagt
+einen großen Körper.
+Wenn wir jetzt diesen negativ geladenen Stab hier drinnen halten,
+dann werden die ganzen Elektronen hier rüber gedrängt.
+Und wenn wir die jetzt in Kontakt trennen ...
+... dann sind hier tatsächlich mehr Elektronen,
+als auf dieser Kugel.
+Das heißt, diese Kugel ist positiv geladen
+und diese Kugel jetzt negativ.
+Das glaubt ihr nicht?
+Das zeigen wir euch jetzt mit unserem negativ geladenen Ballon,
+dass das tatsächlich so ist.
+So, negativer Ballon an positiv geladene Kugel.
+Gegensätzliche Ladung ziehen sich an
+und hier auf der Seite stoßen sie sich ab.
+Das heißt, die sind gleich geladen, also beide negativ.
+Die positiv geladene Kugel zieht den Ballon an
+und die negativ geladene Kugel, die stößt ihn weg.
+Das, was hier passiert ist, das nennt der Physiker dann
+sinnhafterweise Ladungstrennung.
+Also das Auftrennen in negative und positive Ladung.
+Das Körper Kräfte aufeinander ausüben können,
+auch wenn sie sich nicht berühren,
+erscheint erst mal ein bisschen abgefahren.
+Man kennt das zwar von der Gravitation,
+denn alles fällt klar zur Erde hin.
+Dennoch ist die Fernwirkung einer Kraft
+nicht besonders intuitiv.
+Daher hat der englische Physiker Michael Faraday
+einen geschickten Kniff angewendet und sagt einfach,
+da wo ein geladener Körper ist, da ist auch ein elektrisches Feld.
+Und dieses Feld übt dann die Kräfte auf die Ladungsträger aus.
+Noch mal.
+Ladung verändert den Raum um die Ladung herum,
+auch wenn wir das nicht sehen oder sonst irgendwie wahrnehmen können.
+Das Feld, das dadurch entsteht, verursacht dann die Kräfte
+auf die elektrisch geladenen Körper
+und auf die Ladungsträger in diesem Feld.
+Zu dem Thema elektrische Felder gibt es dann aber noch ein weiteres Video.
+Für heute reicht es erst mal.
+Ein Spickzettel haben wir auch noch für euch.
+Ciao!
