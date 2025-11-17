@@ -188,6 +188,10 @@ Text2MdQuiz/
 
 Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
+## Disclaimer
+
+This software is provided "as is" without any guarantees or warranty. Functionality is not guaranteed for any specific purpose or environment. Parts of this project were developed with assistance from GitHub Copilot. Always review code and outputs and verify operation in your context before relying on the results.
+
 ## License
 
 This project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0) - see the [LICENSE](LICENSE) file for details.

@@ -5,6 +5,8 @@ Usage:
     python text2mdquiz.py input.txt [--questions 4] [--points 4] [--answers 2 3] [--type mc|cl|ma] [--output quiz.md] [--model gpt-5]
 
 The quiz language matches the input text (multi-language, especially German supported).
+
+Disclaimer: provided as is; no guaranteed functionality; developed with assistance from GitHub Copilot; please verify operation.
 """
 
 from __future__ import annotations
@@ -33,6 +35,11 @@ class FormatError(Exception):
 
 
 SYSTEM_PROMPT = "You are an experienced K-12 teacher creating educational quizzes for students."
+
+DISCLAIMER = (
+    "Provided as is; no guaranteed functionality; developed with assistance from GitHub Copilot; "
+    "please verify operation."
+)
 
 def build_user_prompt(
     text: str,
@@ -466,7 +473,10 @@ class QuizGenerator:
 # ============================================================================
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Generate a multiple-choice quiz from a text file.")
+    p = argparse.ArgumentParser(
+        description="Generate a multiple-choice quiz from a text file.",
+        epilog=DISCLAIMER,
+    )
     p.add_argument("input", type=Path, help="Path to input text file")
     p.add_argument("--questions", "-q", type=int, default=4, help="Number of questions (default: 4)")
     p.add_argument(
