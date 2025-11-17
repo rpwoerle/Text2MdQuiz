@@ -20,27 +20,30 @@ Perfect for K-12 educators creating quizzes from study materials!
 ### Installation
 
 1. **Clone the repository**:
+
    ```bash
-   git clone https://github.com/YOUR-USERNAME/Text2MdQuiz.git
+   git clone https://github.com/rpwoerle/Text2MdQuiz.git
    cd Text2MdQuiz
    ```
-
 2. **Install dependencies** (Python 3.14+ recommended):
+
    ```bash
    pip install -r requirements.txt
    ```
-
 3. **Set up your OpenAI API key**:
+
    ```bash
    cp .env.example .env
    # Edit .env and add your OPENAI_API_KEY
    ```
-   
+
    Or set it directly in PowerShell/bash:
+
    ```powershell
    # PowerShell
    $env:OPENAI_API_KEY='sk-your-actual-key-here'
    ```
+
    ```bash
    # Bash
    export OPENAI_API_KEY='sk-your-actual-key-here'
@@ -49,16 +52,19 @@ Perfect for K-12 educators creating quizzes from study materials!
 ### Basic Usage
 
 Generate a multi-choice quiz with default settings:
+
 ```bash
 python text2mdquiz.py input.txt
 ```
 
 Generate a Cloze (fill-in-the-blank) quiz:
+
 ```bash
 python text2mdquiz.py input.txt --type cl
 ```
 
 Generate a Matching quiz:
+
 ```bash
 python text2mdquiz.py input.txt --type ma
 ```
@@ -80,16 +86,17 @@ python text2mdquiz.py samples/example-physics-de.txt --type ma --pairs 8
 
 ## Command-Line Options
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `--type` / `-t` | `mc` | Question type: `mc` (Multi-choice), `cl` (Cloze), `ma` (Matching) |
-| `--questions` / `-q` | `4` (Multi-choice/Matching)<br>`1` (Cloze) | Number of questions to generate |
-| `--points` / `-p` | `4` | Points per question (Multi-choice/Matching only; Cloze uses gap weights) |
-| `--answers` / `-a` | `2 3` | Correct and incorrect answer counts (Multi-choice only) |
-| `--gaps` | `4` | Number of blanks in Cloze questions |
-| `--pairs` | `4` | Number of pairs in Matching questions |
-| `--model` | `gpt-5` | OpenAI model name |
-| `--output` / `-o` | `<input>-<type>.md` | Output file path or directory |
+
+| Option               | Default                                    | Description                                                              |
+| ---------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
+| `--type` / `-t`      | `mc`                                       | Question type:`mc` (Multi-choice), `cl` (Cloze), `ma` (Matching)         |
+| `--questions` / `-q` | `4` (Multi-choice/Matching)<br>`1` (Cloze) | Number of questions to generate                                          |
+| `--points` / `-p`    | `4`                                        | Points per question (Multi-choice/Matching only; Cloze uses gap weights) |
+| `--answers` / `-a`   | `2 3`                                      | Correct and incorrect answer counts (Multi-choice only)                  |
+| `--gaps`             | `4`                                        | Number of blanks in Cloze questions                                      |
+| `--pairs`            | `4`                                        | Number of pairs in Matching questions                                    |
+| `--model`            | `gpt-5`                                    | OpenAI model name                                                        |
+| `--output` / `-o`    | `<input>-<type>.md`                        | Output file path or directory                                            |
 
 ## Output Format
 
@@ -108,6 +115,7 @@ All quizzes start with a `# Quiz` header. Each question type has its own format:
 ```
 
 **Rules:**
+
 - Points in square brackets: `[4]`
 - Correct answers marked with trailing `*`
 - Default: 2 correct + 3 incorrect (configurable via `--answers`)
@@ -121,6 +129,7 @@ Energie ist die Fähigkeit durch ihre Umwandlung etwas zu {1:bewirken}. Energie 
 ```
 
 **Rules:**
+
 - Blanks wrapped in `{}` with format `{weight:answer|alternative1|alternative2}`
 - Default weight is `1:` (auto-added if not specified)
 - Higher weights like `{2:answer}` count for more points
@@ -139,6 +148,7 @@ Energie ist die Fähigkeit durch ihre Umwandlung etwas zu {1:bewirken}. Energie 
 ```
 
 **Rules:**
+
 - Format: `- Left term = Right term`
 - Default: 4 pairs (configurable via `--pairs`)
 - Points in square brackets
@@ -189,6 +199,7 @@ This is free educational software. You may use, share, and adapt it for non-comm
 ### Model Not Found Error
 
 If you get a "model not found" error with `gpt-5`, your account may not have access. Try:
+
 ```bash
 python text2mdquiz.py input.txt --model gpt-4o-mini
 ```
