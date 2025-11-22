@@ -95,3 +95,19 @@ def test_cloze_adds_default_weight_prefix():
     # Expect first blank to be prefixed with 1:, second remains 2:
     assert "{1:Test|Beispiel}" in norm
     assert "{2:Gewichtetes|Beispiel}" in norm
+
+
+def test_multi_choice_explanation_ignored():
+    md = (
+        "# Quiz\n"
+        "## Multi-choice: Frage 1\n"
+        "- Chloroplast* [[Ort der Photosynthese]]\n"
+        "- Mitochondrium [[Kraftwerk der Zelle]]\n"
+    )
+    q = parse_quiz(md)
+    assert q[0].question_type == "Multi-choice"
+    texts = [a.text for a in q[0].answers]
+    assert "Chloroplast" in texts and "Mitochondrium" in texts
+    assert all("[[" not in a.text for a in q[0].answers)
+    norm = normalize_quiz(md)
+    assert "[[" not in norm and "]]" not in norm

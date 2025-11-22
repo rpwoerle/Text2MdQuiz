@@ -195,8 +195,10 @@ def parse_quiz(md: str) -> List[Question]:
             # Collect all answer lines
             while i < len(lines) and ANSWER_RE.match(lines[i]):
                 raw = lines[i]
-                is_correct = raw.endswith("*")
-                text = raw[2:].rstrip("*").strip()
+                # Remove trailing explanation block in double brackets [[ ... ]] if present
+                cleaned = re.sub(r"\s*\[\[[^\]]*\]\]\s*$", "", raw)
+                is_correct = cleaned.endswith("*")
+                text = cleaned[2:].rstrip("*").strip()
                 if not text:
                     raise FormatError(f"Empty answer at line {i+1}")
                 answers.append(Answer(text=text, is_correct=is_correct))
