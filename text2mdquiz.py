@@ -195,6 +195,10 @@ def parse_quiz(md: str) -> List[Question]:
             # Collect all answer lines
             while i < len(lines) and ANSWER_RE.match(lines[i]):
                 raw = lines[i]
+                # Skip rationale/explanation lines that are not answers
+                if re.match(r"^-\s*Rationale\s*:", raw):
+                    i += 1
+                    continue
                 # Remove trailing explanation block in double brackets [[ ... ]] if present
                 cleaned = re.sub(r"\s*\[\[[^\]]*\]\]\s*$", "", raw)
                 is_correct = cleaned.endswith("*")

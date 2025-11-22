@@ -111,3 +111,20 @@ def test_multi_choice_explanation_ignored():
     assert all("[[" not in a.text for a in q[0].answers)
     norm = normalize_quiz(md)
     assert "[[" not in norm and "]]" not in norm
+
+
+def test_multi_choice_rationale_ignored():
+    md = (
+        "# Quiz\n"
+        "## Multi-choice: Frage 1\n"
+        "- Richtige Antwort*\n"
+        "- Falsche Antwort\n"
+        "- Rationale : Diese Zeile erklärt etwas\n"
+        "- Rationale: Noch eine Erläuterung\n"
+    )
+    q = parse_quiz(md)
+    assert len(q[0].answers) == 2  # Rationale lines skipped
+    texts = [a.text for a in q[0].answers]
+    assert any("Rationale" not in t for t in texts)
+    norm = normalize_quiz(md)
+    assert "Rationale" not in norm
