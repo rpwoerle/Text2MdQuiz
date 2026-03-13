@@ -11,7 +11,7 @@ Perfect for K-12 educators creating quizzes from study materials!
 
 - 🎯 **Three question types**: Multi-choice, Cloze, Matching
 - 🌍 **Multi-language support**: Quiz language matches input text
-- ⚙️ **Highly configurable**: Control points, answer counts, gaps, pairs
+- ⚙️ **Highly configurable**: Control points, answer counts, blanks, pairs
 - 📝 **Markdown output**: Clean, standardized format
 - 🧪 **Well-tested**: Comprehensive test suite included
 
@@ -78,7 +78,7 @@ See `samples/` directory for example input text and generated quizzes.
 python text2mdquiz.py samples/example-physics-de.txt --questions 5 --answers 3 4
 
 # Cloze: 2 questions with 6 blanks each
-python text2mdquiz.py samples/example-physics-de.txt --type cl --questions 2 --gaps 6
+python text2mdquiz.py samples/example-physics-de.txt --type cl --questions 2 --blanks 6
 
 # Matching: 1 question with 8 pairs
 python text2mdquiz.py samples/example-physics-de.txt --type ma --pairs 8
@@ -87,16 +87,110 @@ python text2mdquiz.py samples/example-physics-de.txt --type ma --pairs 8
 ## Command-Line Options
 
 
-| Option               | Default                                    | Description                                                              |
-| ---------------------- | -------------------------------------------- | -------------------------------------------------------------------------- |
-| `--type` / `-t`      | `mc`                                       | Question type:`mc` (Multi-choice), `cl` (Cloze), `ma` (Matching)         |
-| `--questions` / `-q` | `4` (Multi-choice/Matching)<br>`1` (Cloze) | Number of questions to generate                                          |
-| `--points` / `-p`    | `4`                                        | Points per question (Multi-choice/Matching only; Cloze uses gap weights) |
-| `--answers` / `-a`   | `2 3`                                      | Correct and incorrect answer counts (Multi-choice only)                  |
-| `--gaps`             | `4`                                        | Number of blanks in Cloze questions                                      |
-| `--pairs`            | `4`                                        | Number of pairs in Matching questions                                    |
-| `--model`            | `gpt-5`                                    | OpenAI model name                                                        |
-| `--output` / `-o`    | `<input>-<type>.md`                        | Output file path or directory                                            |
+| Option               | Default                                    | Description                                                                 |
+| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--type` / `-t`      | `mc`                                       | Question type:`mc` (Multi-choice), `cl` (Cloze), `ma` (Matching)            |
+| `--questions` / `-q` | `4` (Multi-choice/Matching)<br>`1` (Cloze) | Number of questions to generate                                             |
+| `--points` / `-p`    | `4`                                        | Points per question (Multi-choice/Matching only; Cloze uses blank weights)  |
+| `--answers` / `-a`   | `2 3`                                      | Correct and incorrect answer counts (Multi-choice only)                     |
+| `--blanks`           | `4`                                        | Number of blanks in Cloze questions                                         |
+| `--pairs`            | `4`                                        | Number of pairs in Matching questions                                       |
+| `--model`            | `gpt-5`                                    | OpenAI model name                                                           |
+| `--config` / `-c`    | `text2mdquiz.cfg`                          | Path to custom configuration file                                           |
+| `--output` / `-o`    | `<input>-<type>.md`                        | Output file path or directory                                               |
+
+## Configuration and Prompt Files
+
+The tool **requires** a configuration file (`text2mdquiz.cfg`) that defines where prompts are loaded from. Long prompts and examples live in separate text/Markdown files under `prompts/`, which keeps the config readable and avoids multi-line parsing issues.
+
+### Default Location
+
+The config file must exist in the same directory as `text2mdquiz.py`. You can specify a custom config path with `--config`:
+
+```bash
+python text2mdquiz.py input.txt --config my-custom-config.cfg
+```
+
+If the config file is missing or incomplete, the tool will display an error message indicating what's required.
+
+### Configuration Format
+
+The config file uses INI format with three sections (one per question type). Each section points to external prompt/example files:
+
+```ini
+[multi_choice]
+system_prompt_file = prompts/mc_system.txt
+user_prompt_file = prompts/mc_user.txt
+example_file = prompts/mc_example.md
+
+[cloze]
+system_prompt_file = prompts/cloze_system.txt
+user_prompt_file = prompts/cloze_user.txt
+example_file = prompts/cloze_example.md
+
+[matching]
+system_prompt_file = prompts/matching_system.txt
+user_prompt_file = prompts/matching_user.txt
+example_file = prompts/matching_example.md
+```
+
+All file paths can be absolute or relative to the directory containing `text2mdquiz.py`.
+
+### Available Placeholders
+
+Templates in the `user_prompt_file` contents (or inline `user_prompt`, if you add one) can use these placeholders (automatically filled from CLI arguments):
+
+**Multi-choice:**
+- `{num_questions}` - Number of questions
+- `{points_str}` - Points per question (e.g., "[4]")
+- `{total_answers}` - Total answers per question (correct + incorrect)
+- `{num_correct}` - Number of correct answers
+- `{num_incorrect}` - Number of incorrect answers
+
+**Cloze:**
+- `{num_questions}` - Number of questions
+- `{gaps_spec}` - Description of blanks (e.g., "exactly 4 blanks")
+
+**Matching:**
+- `{num_questions}` - Number of questions
+- `{points_str}` - Points per question (e.g., "[4]")
+- `{pairs_spec}` - Description of pairs (e.g., "exactly 4 pairs")
+
+### Attachment Files (Optional)
+
+You can still provide additional instructions to the OpenAI API via an `attachment` file specified in each question type section:
+
+```ini
+[multi_choice]
+system_prompt_file = prompts/mc_system.txt
+attachment = instructions/multi-choice-guidelines.txt
+```
+
+The attachment content is sent as an additional system message, useful for detailed formatting rules, subject-specific terminology, grading rubrics, or pedagogical guidelines.
+
+### Customization Example
+
+To create quizzes with a more formal tone for multi-choice questions:
+
+1. Copy `prompts/mc_system.txt` to `prompts/mc_system_formal.txt` and adapt the wording.
+2. Copy `text2mdquiz.cfg` to `formal-tone.cfg`.
+3. In `formal-tone.cfg`, point the multi-choice section to the new system prompt file:
+   ```ini
+   [multi_choice]
+   system_prompt_file = prompts/mc_system_formal.txt
+   user_prompt_file = prompts/mc_user.txt
+   example_file = prompts/mc_example.md
+   ```
+4. Use the custom config:
+   ```bash
+   python text2mdquiz.py lecture-notes.txt --config formal-tone.cfg
+   ```
+
+### Fallback Behavior
+
+- The configuration file and all required sections (`[multi_choice]`, `[cloze]`, `[matching]`) are **mandatory**.
+- Each section must contain either `system_prompt_file` or an inline `system_prompt`, and either `user_prompt_file` or an inline `user_prompt`.
+- `example_file` is optional; if present and the file exists, its contents are appended as an example block. If omitted or the file is missing, examples are simply skipped.
 
 ## Output Format
 
@@ -133,9 +227,9 @@ Energie ist die Fähigkeit durch ihre Umwandlung etwas zu {1:bewirken}. Energie 
 - Blanks wrapped in `{}` with format `{weight:answer|alternative1|alternative2}`
 - Default weight is `1:` (auto-added if not specified)
 - Higher weights like `{2:answer}` count for more points
-- Total points = sum of all gap weights
-- Heading omits `[points]` (derived from gaps)
-- Default: 1 question with 4 blanks (configurable via `--questions` and `--gaps`)
+- Total points = sum of all blank weights
+- Heading omits `[points]` (derived from blanks)
+- Default: 1 question with 4 blanks (configurable via `--questions` and `--blanks`)
 
 ### Matching
 
@@ -217,5 +311,5 @@ python text2mdquiz.py input.txt --model gpt-4o-mini
 ### Empty or Invalid Output
 
 - Check your input text is substantial (at least a few sentences)
-- Try reducing `--questions` or `--gaps`/`--pairs` counts
+- Try reducing `--questions` or `--blanks`/`--pairs` counts
 - The model may occasionally produce invalid format; retry or adjust prompt

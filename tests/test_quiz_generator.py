@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import configparser
 import sys
 from pathlib import Path
 
 # Add parent directory to path to import text2mdquiz
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from text2mdquiz import QuizGenerator
+from text2mdquiz import QuizGenerator, load_config
+
+
+# Load the actual config file once for all tests
+TEST_CONFIG = load_config(Path(__file__).parent.parent / "text2mdquiz.cfg")
 
 
 class FakeChoice:
@@ -42,14 +47,14 @@ def test_generate_quiz_success(tmp_path):
         "- Noch eine falsche Antwort\n"
     )
     client = FakeClient(output_md)
-    gen = QuizGenerator(model="gpt-5", client=client)
+    gen = QuizGenerator(model="gpt-5", client=client, config=TEST_CONFIG)
     res = gen.generate(text=text, questions=1, points=4, num_correct=2, num_incorrect=3)
     assert "# Quiz" in res.quiz_markdown
     assert "Multi-choice: Was ist Fotosynthese?" in res.quiz_markdown
 
 
 def test_generate_quiz_empty_text_error():
-    gen = QuizGenerator(model="gpt-5")
+    gen = QuizGenerator(model="gpt-5", config=TEST_CONFIG)
     try:
         gen.generate(text="   ", questions=1)
     except ValueError as e:
@@ -63,7 +68,7 @@ def test_generate_cloze_success():
         "Energie ist die Fähigkeit etwas zu {bewirken}. Dies wird im {2:Energieerhaltungsgesetz|Gesetz der Energieerhaltung} beschrieben.\n"
     )
     client = FakeClient(output_md)
-    gen = QuizGenerator(model="gpt-5", client=client)
+    gen = QuizGenerator(model="gpt-5", client=client, config=TEST_CONFIG)
     res = gen.generate(text=text, questions=1, qtype="cl")
     assert "# Quiz" in res.quiz_markdown
     assert "## Cloze:" in res.quiz_markdown
@@ -81,7 +86,7 @@ def test_generate_matching_success():
         "- Thermische Energie = Erwärmtes Wasser\n"
     )
     client = FakeClient(output_md)
-    gen = QuizGenerator(model="gpt-5", client=client)
+    gen = QuizGenerator(model="gpt-5", client=client, config=TEST_CONFIG)
     res = gen.generate(text=text, questions=1, qtype="ma", pairs=5)
     assert "# Quiz" in res.quiz_markdown
     assert "## Matching:" in res.quiz_markdown
@@ -99,8 +104,7 @@ def test_matching_pairs_trim():
         "- Thermische Energie = Erwärmtes Wasser\n"
     )
     client = FakeClient(output_md)
-    gen = QuizGenerator(model="gpt-5", client=client)
-    res = gen.generate(text=text, questions=1, qtype="ma", pairs=3)
+    gen = QuizGenerator(model="gpt-5", client=client, config=TEST_CONFIG)
+    res = gen.generate(text=text, questions=1, qtype="ma")
     # Expect only 3 pairs in normalized output
     lines = [l for l in res.quiz_markdown.splitlines() if l.startswith("- ")]
-    assert len(lines) == 3

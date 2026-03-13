@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """Generate quizzes (Multi-choice, Cloze, Matching) from text files using OpenAI's GPT API.
 
 Usage:
@@ -12,6 +12,7 @@ Disclaimer: provided as is; no guaranteed functionality; developed with assistan
 from __future__ import annotations
 
 import argparse
+import configparser
 import os
 import re
 import sys
@@ -33,107 +34,202 @@ except Exception:  # pragma: no cover - optional dependency
 class FormatError(Exception):
     """Raised when the model's output does not match the required quiz format."""
 
-
-SYSTEM_PROMPT = "You are an experienced K-12 teacher creating educational quizzes for students."
-
 DISCLAIMER = (
     "Provided as is; no guaranteed functionality; developed with assistance from GitHub Copilot; "
     "please verify operation."
 )
 
+
+def load_config(config_path: Path | None = None) -> configparser.ConfigParser:
+    """Load configuration from file.
+    
+    Raises:
+        FileNotFoundError: If config file not found at specified or default location.
+    """
+    config = configparser.ConfigParser()
+    
+    if config_path is None:
+        # Try default location: text2mdquiz.cfg in script directory
+        config_path = Path(__file__).parent / "text2mdquiz.cfg"
+    
+    if not config_path.exists():
+        raise FileNotFoundError(
+            f"Configuration file not found: {config_path}\n"
+            f"Please create text2mdquiz.cfg or specify path with --config"
+        )
+    
+    config.read(config_path, encoding="utf-8")
+    return config
+
+
+def get_section_name(qtype: str) -> str:
+    """Get config section name for question type."""
+    section_map = {"mc": "multi_choice", "cl": "cloze", "ma": "matching"}
+    return section_map.get(qtype, qtype)
+
+
+def _require_section(config: configparser.ConfigParser, section: str) -> None:
+    if not config.has_section(section):
+        raise ValueError(
+            f"Configuration file missing [{section}] section. "
+            f"Please ensure text2mdquiz.cfg has a [{section}] section."
+        )
+
+
+def get_system_prompt_from_section(config: configparser.ConfigParser, section: str) -> str:
+    """Get system prompt from section, supporting system_prompt_file or system_prompt.
+    
+    Raises:
+        ValueError: If neither system_prompt_file nor system_prompt is present.
+    """
+    _require_section(config, section)
+
+    # Prefer external file
+    if config.has_option(section, "system_prompt_file"):
+        path = Path(config.get(section, "system_prompt_file")).expanduser()
+        if not path.is_absolute():
+            path = (Path(__file__).parent / path).resolve()
+        if not path.exists():
+            raise FileNotFoundError(f"System prompt file not found: {path}")
+        return path.read_text(encoding="utf-8").strip()
+
+    # Fallback to inline system_prompt
+    if config.has_option(section, "system_prompt"):
+        return config.get(section, "system_prompt").strip()
+
+    raise ValueError(
+        f"Configuration for section [{section}] must define either system_prompt_file or system_prompt."
+    )
+
+
 def build_user_prompt(
     text: str,
-    num_questions: int,
+    num_questions: int = 4,
     points: int = 4,
     num_correct: int = 2,
     num_incorrect: int = 3,
     qtype: str = "mc",
-    gaps: int | None = None,
+    blanks: int | None = None,
     pairs: int | None = None,
+    config: configparser.ConfigParser | None = None,
 ) -> str:
     """Build user prompt with explicit formatting and language rules for the selected type.
 
     qtype: 'mc' (Multi-choice), 'cl' (Cloze), 'ma' (Matching)
     """
+    if config is None:
+        config = configparser.ConfigParser()
+    
     points_str = f" [{points}]" if points > 1 else ""
+    
     if qtype == "mc":
         total_answers = num_correct + num_incorrect
-        spec = f"""
-Generate exactly {num_questions} multiple-choice questions in the SAME language as the provided text.
+        section = "multi_choice"
+        _require_section(config, section)
 
-Formatting requirements (strict):
-- Each question must be a level-2 Markdown heading starting with: ## Multi-choice: <question>{points_str}
-- Provide exactly {total_answers} answer choices for each question.
-- Start every answer with a hyphen and a space: - <answer>
-- Mark correct answers by adding a trailing asterisk: - <answer>*
-- Provide exactly {num_correct} correct answers per question solely from the provided text.
-- Include exactly {num_incorrect} incorrect answers as plausible distractors.
-- You may invent these incorrect answers, but they must be plausible within the context of the question and the subject matter and do not simply reverse any correct answer to generate an incorrect option.
-- Put a single blank line between questions.
+        # Prefer external user_prompt_file
+        if config.has_option(section, "user_prompt_file"):
+            path = Path(config.get(section, "user_prompt_file")).expanduser()
+            if not path.is_absolute():
+                path = (Path(__file__).parent / path).resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"User prompt file not found: {path}")
+            prompt_template = path.read_text(encoding="utf-8")
+        elif config.has_option(section, "user_prompt"):
+            prompt_template = config.get(section, "user_prompt")
+        else:
+            raise ValueError(
+                f"Configuration for section [{section}] must define either user_prompt_file or user_prompt."
+            )
 
-Only output the quiz in Markdown. Do not include explanations or any text outside the quiz.
-"""
-
-        example = f"""
-Example (format only; content will differ):
-## Multi-choice: Beispielfrage?{points_str}
-- Falsche Antwort
-- Richtige Antwort*
-- Falsche Antwort
-- Richtige Antwort*
-""".strip()
+        # Optional example: load from example_file if present; otherwise skip
+        example_template = ""
+        if config.has_option(section, "example_file"):
+            ex_path = Path(config.get(section, "example_file")).expanduser()
+            if not ex_path.is_absolute():
+                ex_path = (Path(__file__).parent / ex_path).resolve()
+            if ex_path.exists():
+                example_template = ex_path.read_text(encoding="utf-8")
+        
+        spec = prompt_template.format(
+            num_questions=num_questions,
+            points_str=points_str,
+            total_answers=total_answers,
+            num_correct=num_correct,
+            num_incorrect=num_incorrect
+        )
+        example = example_template.format(points_str=points_str) if example_template else ""
+            
     elif qtype == "cl":
-        spec = f"""
-Generate exactly {num_questions} Cloze questions (Lückentexte) in the SAME language as the provided text.
-restrictions:
-- Use only single words as gaps. The words should be nouns, verbs or specialist terms relevant to the subject matter.
-- Do not use the gap words in the surrounding text or as part of other words. 
+        section = "cloze"
+        _require_section(config, section)
 
-Formatting requirements (strict):
-- Each question must be a level-2 Markdown heading starting with: ## Cloze: <short instruction or title>
-- Immediately after the heading, include the cloze text paragraph(s) using curly braces for blanks.
-- Use braces with the correct answer and optional alternatives separated by pipes, e.g., {{Photosynthese|Assimilation}}.
-- You may optionally include a leading integer weight, e.g., {{2:Energieerhaltungsgesetz|Gesetz der Energieerhaltung|Energieerhaltung}}.
-- Put a single blank line between questions.
-
-Defaults and counts:
-- Assign 1 point per blank; total points for the question equals the number of blanks.
-- If no explicit weight is provided for a blank, prefix the blank with `1:` (e.g., `{{1:Antwort|Alt1}}`).
-"""
-
-        if gaps is not None and gaps > 0:
-            spec += f"\n- Include exactly {gaps} blanks (curly-brace fields).\n"
-        spec += "\nOnly output the quiz in Markdown. Do not include explanations or any text outside the quiz.\n"
-
-        example = (
-            "## Cloze: Fülle die Lücken mit den passendsten Begriffen aus.\n"
-            "Energie ist die Fähigkeit durch ihre Umwandlung etwas zu {1:bewirken}. Energie kann von einer Form in eine andere umgewandelt werden, aber sie kann weder geschaffen noch zerstört werden, was als {2:Energieerhaltungsgesetz|Gesetz der Energieerhaltung|Energieerhaltung} bekannt ist. Beispiel: Bei einem Skater in der Halfpipe wird die {1:potenzielle Energie|Lageenergie|Höhenenergie} am höchsten Punkt in {1:kinetische Energie} umgewandelt, wenn er nach unten fährt. Auf der anderen Seite erreicht er nicht mehr die gleiche Höhe, weil ein Teil der Energie durch {1:Reibung} in {1:Wärmeenergie|thermische Energie} umgewandelt wird."
+        if config.has_option(section, "user_prompt_file"):
+            path = Path(config.get(section, "user_prompt_file")).expanduser()
+            if not path.is_absolute():
+                path = (Path(__file__).parent / path).resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"User prompt file not found: {path}")
+            prompt_template = path.read_text(encoding="utf-8")
+        elif config.has_option(section, "user_prompt"):
+            prompt_template = config.get(section, "user_prompt")
+        else:
+            raise ValueError(
+                f"Configuration for section [{section}] must define either user_prompt_file or user_prompt."
+            )
+        example_template = ""
+        if config.has_option(section, "example_file"):
+            ex_path = Path(config.get(section, "example_file")).expanduser()
+            if not ex_path.is_absolute():
+                ex_path = (Path(__file__).parent / ex_path).resolve()
+            if ex_path.exists():
+                example_template = ex_path.read_text(encoding="utf-8")
+        
+        # For cloze, number of blanks comes from `blanks` if provided,
+        # otherwise fall back to the number of questions.
+        num_blanks = blanks if blanks is not None and blanks > 0 else num_questions
+        spec = prompt_template.format(
+            num_blanks=num_blanks,
         )
+        example = example_template if example_template else ""
+            
     else:  # qtype == "ma"
-        spec = f"""
-Generate exactly {num_questions} Matching questions in the SAME language as the provided text.
+        section = "matching"
+        _require_section(config, section)
 
-Formatting requirements (strict):
-- Each question must be a level-2 Markdown heading starting with: ## Matching: <instruction>{points_str}
-- Provide pairs on separate lines after the heading.
-- Each pair must be formatted with a hyphen, a space, the left term, an equals sign, and the right term: - <Left> = <Right>
-- Do not add trailing asterisks here.
-- Put a single blank line between questions.
-
-Only output the quiz in Markdown. Do not include explanations or any text outside the quiz.
-"""
-
+        if config.has_option(section, "user_prompt_file"):
+            path = Path(config.get(section, "user_prompt_file")).expanduser()
+            if not path.is_absolute():
+                path = (Path(__file__).parent / path).resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"User prompt file not found: {path}")
+            prompt_template = path.read_text(encoding="utf-8")
+        elif config.has_option(section, "user_prompt"):
+            prompt_template = config.get(section, "user_prompt")
+        else:
+            raise ValueError(
+                f"Configuration for section [{section}] must define either user_prompt_file or user_prompt."
+            )
+        example_template = ""
+        if config.has_option(section, "example_file"):
+            ex_path = Path(config.get(section, "example_file")).expanduser()
+            if not ex_path.is_absolute():
+                ex_path = (Path(__file__).parent / ex_path).resolve()
+            if ex_path.exists():
+                example_template = ex_path.read_text(encoding="utf-8")
+        
+        # For matching, requested pairs per question come from `pairs` if provided,
+        # otherwise we leave the model free (no explicit constraint).
+        pairs_spec = ""
         if pairs is not None and pairs > 0:
-            spec += f"\n- Include exactly {pairs} pairs.\n"
+            pairs_spec = f"- Include exactly {pairs} pairs per question."
 
-        example = (
-            "## Matching: Ordne die hauptsächlichen Energieformen den Beispielen zu.\n"
-            "- Mechanische Energie = Ein rollender Ball\n"
-            "- Chemische Energie = Verbrennung von Holz\n"
-            "- Elektrische Energie = Strom aus der Steckdose\n"
-            "- Strahlungsenergie = Sonnenlicht\n"
-            "- Thermische Energie = Erwärmtes Wasser"
+        spec = prompt_template.format(
+            num_questions=num_questions,
+            points_str=points_str,
+            pairs_spec=("\n" + pairs_spec) if pairs_spec else "",
         )
+        example = example_template.format(points_str=points_str) if example_template else ""
 
     return spec + "\n\nTEXT:\n" + text + "\n\n" + example
 
@@ -274,8 +370,6 @@ def normalize_quiz(
     num_correct: int = 2,
     num_incorrect: int = 3,
     *,
-    qtype: str | None = None,
-    gaps: int | None = None,
     pairs: int | None = None,
 ) -> str:
     """Normalize quiz markdown to the canonical format.
@@ -288,9 +382,9 @@ def normalize_quiz(
         # Compute points for Cloze based on blanks (1 point per blank by default)
         computed_points = q.points
         if q.question_type == "Cloze" and q.body:
-            gap_count = len(re.findall(r"\{[^}]+\}", q.body))
-            if gap_count > 0:
-                computed_points = gap_count
+            blank_count = len(re.findall(r"\{[^}]+\}", q.body))
+            if blank_count > 0:
+                computed_points = blank_count
         # For Cloze, omit points in the heading entirely
         if q.question_type == "Cloze":
             points_str = ""
@@ -361,10 +455,17 @@ class GenerationResult:
 
 
 class QuizGenerator:
-    def __init__(self, model: str = "gpt-5", timeout: Optional[int] = 60, client: Any | None = None):
+    def __init__(
+        self, 
+        model: str = "gpt-5", 
+        timeout: Optional[int] = 180, 
+        client: Any | None = None,
+        config: configparser.ConfigParser | None = None
+    ):
         self.model = model
         self.timeout = timeout
         self._client = client
+        self.config = config if config is not None else configparser.ConfigParser()
 
     def generate(
         self,
@@ -374,7 +475,7 @@ class QuizGenerator:
         num_correct: int = 2,
         num_incorrect: int = 3,
         qtype: str = "mc",
-        gaps: int | None = None,
+        blanks: int | None = None,
         pairs: int | None = None,
     ) -> GenerationResult:
         if not text.strip():
@@ -383,29 +484,52 @@ class QuizGenerator:
             raise ValueError("Number of questions must be positive.")
 
         user_prompt = build_user_prompt(
-            text,
-            questions,
-            points,
-            num_correct,
-            num_incorrect,
-            qtype,
-            gaps=gaps,
+            text=text,
+            num_questions=questions,
+            points=points,
+            num_correct=num_correct,
+            num_incorrect=num_incorrect,
+            qtype=qtype,
+            blanks=blanks,
             pairs=pairs,
+            config=self.config,
         )
+        
+        # Get section name and load section-specific system prompt and attachment
+        section = get_section_name(qtype)
+        system_prompt = get_system_prompt_from_section(self.config, section)
 
         try:
             client = self._client or (OpenAI() if OpenAI is not None else None)
             if client is None:
                 raise RuntimeError("OpenAI SDK not available. Install 'openai' package or inject a client.")
             
+            # Check for attachment file in question type section
+            attachment_content = None
+            if self.config.has_option(section, "attachment"):
+                attachment_path = Path(self.config.get(section, "attachment"))
+                if attachment_path.exists():
+                    attachment_content = attachment_path.read_text(encoding="utf-8")
+                    print(f"Loaded additional instructions from: {attachment_path}")
+            
             try:
                 print("Sending request to OpenAI, please wait...")
+                
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ]
+                
+                # If attachment exists, add it as an additional user message
+                if attachment_content:
+                    messages.insert(1, {
+                        "role": "system", 
+                        "content": f"Additional instructions:\n\n{attachment_content}"
+                    })
+                
                 resp = client.chat.completions.create(
                     model=self.model,
-                    messages=[
-                        {"role": "system", "content": SYSTEM_PROMPT},
-                        {"role": "user", "content": user_prompt},
-                    ],
+                    messages=messages,
                     timeout=self.timeout,
                 )
             except Exception as inner:
@@ -437,20 +561,20 @@ class QuizGenerator:
         if not content:
             raise RuntimeError("Empty response from model.")
 
-        # Early parse to enforce gap/pair counts before normalization alters output
+        # Early parse to enforce blank/pair counts before normalization alters output
         try:
             preliminary = parse_quiz(content)
         except FormatError:
             # Will be handled again in validate after normalization
             preliminary = []
         if preliminary:
-            if qtype == "cl" and gaps is not None and gaps > 0:
+            if qtype == "cl" and blanks is not None and blanks > 0:
                 for q in preliminary:
                     if q.question_type == "Cloze":
-                        gap_count = len(re.findall(r"\{[^}]+\}", q.body or ""))
-                        if gap_count != gaps:
+                        blank_count = len(re.findall(r"\{[^}]+\}", q.body or ""))
+                        if blank_count != blanks:
                             raise FormatError(
-                                f"Cloze question has {gap_count} blanks but --gaps {gaps} was requested."
+                                f"Cloze question has {blank_count} blanks but --blanks {blanks} was requested."
                             )
             if qtype == "ma" and pairs is not None and pairs > 0:
                 for q in preliminary:
@@ -460,14 +584,12 @@ class QuizGenerator:
                             raise FormatError(
                                 f"Matching question has {pair_count} pairs but at least {pairs} were requested."
                             )
-
+        
         quiz_md = normalize_quiz(
             content,
-            num_correct,
-            num_incorrect,
-            qtype=qtype,
-            gaps=gaps,
-            pairs=pairs,
+            num_correct=num_correct,
+            num_incorrect=num_incorrect,
+            pairs=pairs if qtype == "ma" else None,
         )
         validate_quiz(quiz_md, expected_questions=questions)
 
@@ -484,7 +606,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         epilog=DISCLAIMER,
     )
     p.add_argument("input", type=Path, help="Path to input text file")
-    p.add_argument("--questions", "-q", type=int, default=4, help="Number of questions (default: 4)")
+    # Default questions: 4 for Multi-choice, 1 for Cloze, 2 for Matching
+    p.add_argument("--questions", "-q", type=int, default=4, help="Number of questions (default: 4 for Multi-choice)")
     p.add_argument(
         "--output",
         "-o",
@@ -511,7 +634,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Question type: mc=Multi-choice, cl=Cloze, ma=Matching (default: mc)",
     )
     p.add_argument(
-        "--gaps",
+        "--blanks",
         type=int,
         default=4,
         help="Exact number of blanks for Cloze questions (default: 4).",
@@ -521,6 +644,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         type=int,
         default=4,
         help="Exact number of pairs for Matching questions (default: 4).",
+    )
+    p.add_argument(
+        "--config",
+        "-c",
+        type=Path,
+        required=False,
+        help="Path to configuration file (default: text2mdquiz.cfg in script directory)",
     )
     return p.parse_args(argv)
 
@@ -532,9 +662,16 @@ def main(argv: list[str] | None = None) -> int:
         load_dotenv()
     
     args = parse_args(argv)
-    # Override default questions for Cloze if user did not explicitly set --questions / -q
-    if args.type == "cl" and not any(a in argv for a in ("--questions", "-q")):
-        args.questions = 1
+    
+    # Load configuration
+    config = load_config(args.config)
+
+    # Override default questions per type if user did not explicitly set --questions / -q
+    if not any(a in argv for a in ("--questions", "-q")):
+        if args.type == "cl":
+            args.questions = 1
+        elif args.type == "ma":
+            args.questions = 2
 
     # Validate API key presence early
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
@@ -559,7 +696,7 @@ def main(argv: list[str] | None = None) -> int:
         else:
             output_path = args.output
     
-    gen = QuizGenerator(model=args.model)
+    gen = QuizGenerator(model=args.model, config=config)
     num_correct, num_incorrect = args.answers
     try:
         result = gen.generate(
@@ -569,8 +706,8 @@ def main(argv: list[str] | None = None) -> int:
             num_correct=num_correct,
             num_incorrect=num_incorrect,
             qtype=args.type,
-            gaps=args.gaps,
-            pairs=args.pairs,
+            blanks=args.blanks if args.type == "cl" else None,
+            pairs=args.pairs if args.type == "ma" else None,
         )
     except Exception as e:
         msg = str(e)
