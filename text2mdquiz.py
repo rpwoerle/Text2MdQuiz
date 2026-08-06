@@ -1,8 +1,8 @@
 
-"""Generate quizzes (Multi-choice, Cloze, Matching) from text files using OpenAI's GPT API.
+"""Generate quizzes (Multi-choice, Cloze, Matching) from text/PDF files using LLM APIs.
 
 Usage:
-    python text2mdquiz.py input.txt [--questions 4] [--points 4] [--answers 2 3] [--type mc|cl|ma] [--output quiz.md] [--model gpt-5]
+    python text2mdquiz.py input.txt|input.pdf [--questions 4] [--points 4] [--answers 2 3] [--type mc|cl|ma] [--output quiz.md] [--provider openai|gemini|claude] [--model MODEL]
 
 The quiz language matches the input text (multi-language, especially German supported).
 
@@ -12,10 +12,13 @@ Disclaimer: provided as is; no guaranteed functionality; developed with assistan
 from __future__ import annotations
 
 import argparse
+import base64
 import configparser
+import glob
 import os
 import re
 import sys
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional
@@ -30,14 +33,74 @@ try:  # OpenAI SDK v1
 except Exception:  # pragma: no cover - optional dependency
     OpenAI = None  # type: ignore
 
+try:  # Gemini SDK
+    from google import genai  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    genai = None  # type: ignore
+
+try:  # Anthropic SDK
+    from anthropic import Anthropic  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    Anthropic = None  # type: ignore
+
 
 class FormatError(Exception):
     """Raised when the model's output does not match the required quiz format."""
+
+
+class GenerationFormatError(FormatError):
+    """Raised when generation produced content, but it failed quiz format checks."""
+
+    def __init__(self, message: str, raw_response: str, quiz_markdown: str | None = None):
+        super().__init__(message)
+        self.raw_response = raw_response
+        self.quiz_markdown = quiz_markdown if quiz_markdown is not None else (
+            raw_response if raw_response.endswith("\n") else raw_response + "\n"
+        )
 
 DISCLAIMER = (
     "Provided as is; no guaranteed functionality; developed with assistance from GitHub Copilot; "
     "please verify operation."
 )
+
+DEFAULT_MODEL_BY_PROVIDER = {
+    "openai": "gpt-5",
+    "gemini": "gemini-3.1-flash-lite",
+    "claude": "claude-sonnet-4-6",
+}
+
+
+def _get_provider_api_key(provider: str) -> str:
+    """Return API key for provider, loading .env as a fallback if needed.
+
+    Supports API_KEY as an alias for OpenAI credentials.
+    """
+
+    def _read_key() -> str:
+        if provider == "openai":
+            return os.getenv("OPENAI_API_KEY", "").strip() or os.getenv("API_KEY", "").strip()
+        if provider == "gemini":
+            return os.getenv("GEMINI_API_KEY", "").strip() or os.getenv("GOOGLE_API_KEY", "").strip()
+        return os.getenv("ANTHROPIC_API_KEY", "").strip()
+
+    api_key = _read_key()
+    if api_key:
+        # Normalize alias usage for SDKs that expect provider-specific names.
+        if provider == "openai" and not os.getenv("OPENAI_API_KEY", "").strip():
+            os.environ["OPENAI_API_KEY"] = api_key
+        return api_key
+
+    if load_dotenv is None:
+        return ""
+
+    # Try .env in the current working directory first, then script directory.
+    load_dotenv(dotenv_path=Path.cwd() / ".env", override=False)
+    load_dotenv(dotenv_path=Path(__file__).parent / ".env", override=False)
+
+    api_key = _read_key()
+    if provider == "openai" and api_key and not os.getenv("OPENAI_API_KEY", "").strip():
+        os.environ["OPENAI_API_KEY"] = api_key
+    return api_key
 
 
 def load_config(config_path: Path | None = None) -> configparser.ConfigParser:
@@ -64,7 +127,7 @@ def load_config(config_path: Path | None = None) -> configparser.ConfigParser:
 
 def get_section_name(qtype: str) -> str:
     """Get config section name for question type."""
-    section_map = {"mc": "multi_choice", "cl": "cloze", "ma": "matching"}
+    section_map = {"mc": "multi_choice", "cl": "cloze", "ma": "matching", "es": "essay"}
     return section_map.get(qtype, qtype)
 
 
@@ -102,8 +165,72 @@ def get_system_prompt_from_section(config: configparser.ConfigParser, section: s
     )
 
 
+def resolve_input_files(inputs: list[str]) -> list[Path]:
+    """Resolve explicit paths and glob patterns into existing input files."""
+    resolved: list[Path] = []
+    seen: set[Path] = set()
+
+    for item in inputs:
+        pattern = str(item)
+        if any(ch in pattern for ch in "*?[]"):
+            matches = sorted(glob.glob(pattern))
+            if not matches:
+                raise ValueError(f"Input pattern '{pattern}' did not match any files")
+            for match in matches:
+                p = Path(match).resolve()
+                if p not in seen:
+                    resolved.append(p)
+                    seen.add(p)
+            continue
+
+        p = Path(pattern).resolve()
+        if not p.exists():
+            raise ValueError(f"Input file not found: {pattern}")
+        if p not in seen:
+            resolved.append(p)
+            seen.add(p)
+
+    return resolved
+
+
+def apply_config_defaults(args: argparse.Namespace, config: configparser.ConfigParser) -> None:
+    """Apply config values as defaults unless CLI explicitly provided an option."""
+    required_sections = ["defaults", "multi_choice", "cloze", "matching"]
+    for section in required_sections:
+        if not config.has_section(section):
+            raise ValueError(f"Configuration missing required section '{section}'")
+
+    required_options = {
+        "defaults": ["provider", "type", "questions", "points"],
+        "multi_choice": ["answers"],
+        "cloze": ["blanks"],
+        "matching": ["pairs"],
+    }
+    for section, options in required_options.items():
+        for option in options:
+            if not config.has_option(section, option):
+                raise ValueError(f"Configuration section [{section}] is missing required option '{option}'")
+
+    cli_provided = getattr(args, "_cli_provided", set())
+
+    if "provider" not in cli_provided:
+        args.provider = config.get("defaults", "provider")
+    if "type" not in cli_provided:
+        args.type = config.get("defaults", "type")
+    if "questions" not in cli_provided:
+        args.questions = config.getint("defaults", "questions")
+    if "points" not in cli_provided:
+        args.points = config.getint("defaults", "points")
+    if "answers" not in cli_provided:
+        args.answers = [int(x) for x in config.get("multi_choice", "answers").split()]
+    if "blanks" not in cli_provided:
+        args.blanks = config.getint("cloze", "blanks")
+    if "pairs" not in cli_provided:
+        args.pairs = config.getint("matching", "pairs")
+
+
 def build_user_prompt(
-    text: str,
+    text: str | None,
     num_questions: int = 4,
     points: int = 4,
     num_correct: int = 2,
@@ -115,7 +242,7 @@ def build_user_prompt(
 ) -> str:
     """Build user prompt with explicit formatting and language rules for the selected type.
 
-    qtype: 'mc' (Multi-choice), 'cl' (Cloze), 'ma' (Matching)
+    qtype: 'mc' (Multi-choice), 'cl' (Cloze), 'ma' (Matching), 'es' (Essay)
     """
     if config is None:
         config = configparser.ConfigParser()
@@ -193,7 +320,7 @@ def build_user_prompt(
         )
         example = example_template if example_template else ""
             
-    else:  # qtype == "ma"
+    elif qtype == "ma":
         section = "matching"
         _require_section(config, section)
 
@@ -231,7 +358,42 @@ def build_user_prompt(
         )
         example = example_template.format(points_str=points_str) if example_template else ""
 
-    return spec + "\n\nTEXT:\n" + text + "\n\n" + example
+    else:  # qtype == "es"
+        section = "essay"
+        _require_section(config, section)
+
+        essay_points_str = f" [{points}]"
+
+        if config.has_option(section, "user_prompt_file"):
+            path = Path(config.get(section, "user_prompt_file")).expanduser()
+            if not path.is_absolute():
+                path = (Path(__file__).parent / path).resolve()
+            if not path.exists():
+                raise FileNotFoundError(f"User prompt file not found: {path}")
+            prompt_template = path.read_text(encoding="utf-8")
+        elif config.has_option(section, "user_prompt"):
+            prompt_template = config.get(section, "user_prompt")
+        else:
+            raise ValueError(
+                f"Configuration for section [{section}] must define either user_prompt_file or user_prompt."
+            )
+
+        example_template = ""
+        if config.has_option(section, "example_file"):
+            ex_path = Path(config.get(section, "example_file")).expanduser()
+            if not ex_path.is_absolute():
+                ex_path = (Path(__file__).parent / ex_path).resolve()
+            if ex_path.exists():
+                example_template = ex_path.read_text(encoding="utf-8")
+
+        spec = prompt_template.format(num_questions=num_questions, points_str=essay_points_str)
+        example = example_template.replace("{points_str}", essay_points_str) if example_template else ""
+
+    if text is None:
+        source_block = "\n\nSOURCE MATERIAL:\nUse the provided PDF document as the source text for the quiz.\n\n"
+    else:
+        source_block = "\n\nTEXT:\n" + text + "\n\n"
+    return spec + source_block + example
 
 QUESTION_RE = re.compile(r"^##\s+(Multi-choice|Cloze|Matching):\s+.+")
 ANSWER_RE = re.compile(r"^-\s+.+")
@@ -288,6 +450,10 @@ def parse_quiz(md: str) -> List[Question]:
         pairs: Optional[List[tuple[str, str]]] = None
 
         if question_type == "Multi-choice":
+            # Some providers insert a blank line after the heading before answers.
+            while i < len(lines) and not lines[i].strip():
+                i += 1
+
             # Collect all answer lines
             while i < len(lines) and ANSWER_RE.match(lines[i]):
                 raw = lines[i]
@@ -296,9 +462,11 @@ def parse_quiz(md: str) -> List[Question]:
                     i += 1
                     continue
                 # Remove trailing explanation block in double brackets [[ ... ]] if present
-                cleaned = re.sub(r"\s*\[\[[^\]]*\]\]\s*$", "", raw)
+                cleaned = re.sub(r"\s*\[\[[^\]]*\]\]\s*$", "", raw).rstrip()
                 is_correct = cleaned.endswith("*")
-                text = cleaned[2:].rstrip("*").strip()
+                text = cleaned[2:].strip()
+                if is_correct:
+                    text = text[:-1].rstrip()
                 if not text:
                     raise FormatError(f"Empty answer at line {i+1}")
                 answers.append(Answer(text=text, is_correct=is_correct))
@@ -444,6 +612,45 @@ def validate_quiz(md: str, expected_questions: int | None = None) -> None:
                 raise FormatError("Matching must have at least 2 pairs.")
 
 
+def _ensure_essay_points(md: str, points: int) -> str:
+    """Ensure each essay heading includes the configured points value."""
+    heading_re = re.compile(r"^(##\s+Essay:\s+.+?)(?:\s+\[\d+\])?$")
+    lines = md.splitlines()
+    updated_lines: list[str] = []
+    for line in lines:
+        match = heading_re.match(line)
+        if match:
+            updated_lines.append(f"{match.group(1)} [{points}]")
+        else:
+            updated_lines.append(line)
+    result = "\n".join(updated_lines)
+    if md.endswith("\n"):
+        result += "\n"
+    return result
+
+
+def _ensure_quiz_header(md: str) -> str:
+    """Ensure markdown begins with '# Quiz' as the first non-empty line."""
+    if not md.strip():
+        return "# Quiz\n"
+
+    lines = md.splitlines()
+    first_non_empty_idx = next((i for i, line in enumerate(lines) if line.strip()), None)
+    if first_non_empty_idx is None:
+        return "# Quiz\n"
+
+    first_line = lines[first_non_empty_idx].lstrip("\ufeff").strip()
+    if first_line.lower() == "# quiz":
+        return md
+
+    had_trailing_newline = md.endswith("\n")
+    body = md.lstrip("\ufeff\r\n")
+    result = f"# Quiz\n{body}"
+    if had_trailing_newline and not result.endswith("\n"):
+        result += "\n"
+    return result
+
+
 # ============================================================================
 # QUIZ GENERATOR
 # ============================================================================
@@ -452,94 +659,170 @@ def validate_quiz(md: str, expected_questions: int | None = None) -> None:
 class GenerationResult:
     quiz_markdown: str
     raw_response: str
+    raw_native_response_json: str | None = None
+    validation_warning: str | None = None
 
 
 class QuizGenerator:
     def __init__(
         self, 
-        model: str = "gpt-5", 
+        model: str | None = None,
+        provider: str = "openai",
         timeout: Optional[int] = 180, 
         client: Any | None = None,
         config: configparser.ConfigParser | None = None
     ):
-        self.model = model
+        self.provider = provider
+        self.model = model or DEFAULT_MODEL_BY_PROVIDER[provider]
         self.timeout = timeout
         self._client = client
         self.config = config if config is not None else configparser.ConfigParser()
 
-    def generate(
+    def _build_messages(self, system_prompt: str, user_prompt: str, attachment_content: str | None) -> list[dict[str, str]]:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+        if attachment_content:
+            messages.insert(
+                1,
+                {
+                    "role": "system",
+                    "content": f"Additional instructions:\n\n{attachment_content}",
+                },
+            )
+        return messages
+
+    def _call_openai(
         self,
-        text: str,
-        questions: int,
-        points: int = 4,
-        num_correct: int = 2,
-        num_incorrect: int = 3,
-        qtype: str = "mc",
-        blanks: int | None = None,
-        pairs: int | None = None,
-    ) -> GenerationResult:
-        if not text.strip():
-            raise ValueError("Input text is empty.")
-        if questions <= 0:
-            raise ValueError("Number of questions must be positive.")
+        system_prompt: str,
+        user_prompt: str,
+        attachment_content: str | None,
+        input_pdf_path: Path | None = None,
+    ) -> Any:
+        client = self._client or (OpenAI() if OpenAI is not None else None)
+        if client is None:
+            raise RuntimeError("OpenAI SDK not available. Install 'openai' package or inject a client.")
 
-        user_prompt = build_user_prompt(
-            text=text,
-            num_questions=questions,
-            points=points,
-            num_correct=num_correct,
-            num_incorrect=num_incorrect,
-            qtype=qtype,
-            blanks=blanks,
-            pairs=pairs,
-            config=self.config,
+        if input_pdf_path is not None:
+            instructions = system_prompt
+            if attachment_content:
+                instructions += f"\n\nAdditional instructions:\n\n{attachment_content}"
+
+            with input_pdf_path.open("rb") as f:
+                uploaded = client.files.create(file=f, purpose="user_data")
+
+            return client.responses.create(
+                model=self.model,
+                instructions=instructions,
+                input=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_file", "file_id": uploaded.id},
+                            {"type": "input_text", "text": user_prompt},
+                        ],
+                    }
+                ],
+            )
+
+        messages = self._build_messages(system_prompt, user_prompt, attachment_content)
+        return client.chat.completions.create(
+            model=self.model,
+            messages=messages,
+            timeout=self.timeout,
         )
-        
-        # Get section name and load section-specific system prompt and attachment
-        section = get_section_name(qtype)
-        system_prompt = get_system_prompt_from_section(self.config, section)
 
-        try:
-            client = self._client or (OpenAI() if OpenAI is not None else None)
-            if client is None:
-                raise RuntimeError("OpenAI SDK not available. Install 'openai' package or inject a client.")
-            
-            # Check for attachment file in question type section
-            attachment_content = None
-            if self.config.has_option(section, "attachment"):
-                attachment_path = Path(self.config.get(section, "attachment"))
-                if attachment_path.exists():
-                    attachment_content = attachment_path.read_text(encoding="utf-8")
-                    print(f"Loaded additional instructions from: {attachment_path}")
-            
-            try:
-                print("Sending request to OpenAI, please wait...")
-                
-                messages = [
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ]
-                
-                # If attachment exists, add it as an additional user message
-                if attachment_content:
-                    messages.insert(1, {
-                        "role": "system", 
-                        "content": f"Additional instructions:\n\n{attachment_content}"
-                    })
-                
-                resp = client.chat.completions.create(
-                    model=self.model,
-                    messages=messages,
-                    timeout=self.timeout,
-                )
-            except Exception as inner:
-                raise RuntimeError(f"OpenAI API error for model '{self.model}': {inner}") from inner
-        except Exception as e:
-            raise RuntimeError(f"OpenAI API error: {e}") from e
+    def _call_gemini(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        attachment_content: str | None,
+        input_pdf_path: Path | None = None,
+    ) -> Any:
+        if self._client is not None:
+            client = self._client
+        else:
+            if genai is None:
+                raise RuntimeError("Gemini SDK not available. Install 'google-genai' package.")
+            api_key = os.getenv("GEMINI_API_KEY", "").strip() or os.getenv("GOOGLE_API_KEY", "").strip()
+            client = genai.Client(api_key=api_key)
 
-        def _get_content(r) -> str:
+        combined_system = system_prompt
+        if attachment_content:
+            combined_system += f"\n\nAdditional instructions:\n\n{attachment_content}"
+        if input_pdf_path is not None:
+            if genai is None:
+                raise RuntimeError("Gemini SDK not available. Install 'google-genai' package.")
+            pdf_bytes = input_pdf_path.read_bytes()
+            prompt = f"System instructions:\n{combined_system}\n\nUser request:\n{user_prompt}"
+            return client.models.generate_content(
+                model=self.model,
+                contents=[
+                    genai.types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"),
+                    genai.types.Part.from_text(text=prompt),
+                ],
+            )
+
+        prompt = f"System instructions:\n{combined_system}\n\nUser request:\n{user_prompt}"
+        return client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+        )
+
+    def _call_claude(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        attachment_content: str | None,
+        input_pdf_path: Path | None = None,
+    ) -> Any:
+        client = self._client or (Anthropic() if Anthropic is not None else None)
+        if client is None:
+            raise RuntimeError("Anthropic SDK not available. Install 'anthropic' package or inject a client.")
+
+        message_text = user_prompt
+        if attachment_content:
+            message_text += f"\n\nAdditional instructions:\n\n{attachment_content}"
+
+        if input_pdf_path is not None:
+            pdf_data = base64.standard_b64encode(input_pdf_path.read_bytes()).decode("utf-8")
+            return client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "document",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "application/pdf",
+                                    "data": pdf_data,
+                                },
+                            },
+                            {"type": "text", "text": message_text},
+                        ],
+                    }
+                ],
+            )
+
+        return client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": message_text}],
+        )
+
+    def _extract_content(self, response: Any) -> str:
+        if self.provider == "openai":
             try:
-                choices = r.get("choices") if isinstance(r, dict) else getattr(r, "choices", None)
+                output_text = response.get("output_text") if isinstance(response, dict) else getattr(response, "output_text", None)
+                if isinstance(output_text, str) and output_text.strip():
+                    return output_text
+                choices = response.get("choices") if isinstance(response, dict) else getattr(response, "choices", None)
                 if not choices:
                     return ""
                 c0 = choices[0]
@@ -557,41 +840,130 @@ class QuizGenerator:
             except Exception:
                 return ""
 
-        content = _get_content(resp)
+        if self.provider == "gemini":
+            text = getattr(response, "text", None)
+            if isinstance(text, str) and text.strip():
+                return text
+            candidates = getattr(response, "candidates", None) or []
+            for cand in candidates:
+                content = getattr(cand, "content", None)
+                parts = getattr(content, "parts", None) or []
+                part_texts = [getattr(p, "text", "") for p in parts if getattr(p, "text", "")]
+                if part_texts:
+                    return "\n".join(part_texts)
+            return ""
+
+        # Claude
+        blocks = getattr(response, "content", None) or []
+        texts = [getattr(block, "text", "") for block in blocks if getattr(block, "text", "")]
+        return "\n".join(texts)
+
+    def generate(
+        self,
+        text: str,
+        questions: int,
+        points: int = 4,
+        num_correct: int = 2,
+        num_incorrect: int = 3,
+        qtype: str = "mc",
+        blanks: int | None = None,
+        pairs: int | None = None,
+        input_pdf_path: Path | None = None,
+    ) -> GenerationResult:
+        if input_pdf_path is None and not text.strip():
+            raise ValueError("Input text is empty.")
+        if questions <= 0:
+            raise ValueError("Number of questions must be positive.")
+        if input_pdf_path is not None and not input_pdf_path.exists():
+            raise ValueError(f"Input PDF file not found: {input_pdf_path}")
+
+        user_prompt = build_user_prompt(
+            text=None if input_pdf_path is not None else text,
+            num_questions=questions,
+            points=points,
+            num_correct=num_correct,
+            num_incorrect=num_incorrect,
+            qtype=qtype,
+            blanks=blanks,
+            pairs=pairs,
+            config=self.config,
+        )
+        
+        # Get section name and load section-specific system prompt and attachment
+        section = get_section_name(qtype)
+        system_prompt = get_system_prompt_from_section(self.config, section)
+
+        # Check for attachment file in question type section
+        attachment_content = None
+        if self.config.has_option(section, "attachment"):
+            attachment_path = Path(self.config.get(section, "attachment"))
+            if attachment_path.exists():
+                attachment_content = attachment_path.read_text(encoding="utf-8")
+                print(f"Loaded additional instructions from: {attachment_path}")
+
+        try:
+            print(f"Sending request to {self.provider}, please wait...")
+            if self.provider == "openai":
+                resp = self._call_openai(system_prompt, user_prompt, attachment_content, input_pdf_path=input_pdf_path)
+            elif self.provider == "gemini":
+                resp = self._call_gemini(system_prompt, user_prompt, attachment_content, input_pdf_path=input_pdf_path)
+            elif self.provider == "claude":
+                resp = self._call_claude(system_prompt, user_prompt, attachment_content, input_pdf_path=input_pdf_path)
+            else:
+                raise RuntimeError(f"Unsupported provider: {self.provider}")
+        except Exception as e:
+            provider_label = self.provider.capitalize()
+            if input_pdf_path is not None:
+                raise RuntimeError(
+                    f"{provider_label} PDF request failed for '{input_pdf_path.name}'. "
+                    f"Verify provider/model PDF support and retry. Details: {e}"
+                ) from e
+            raise RuntimeError(f"{provider_label} API error for model '{self.model}': {e}") from e
+
+        content = self._extract_content(resp)
         if not content:
             raise RuntimeError("Empty response from model.")
 
-        # Early parse to enforce blank/pair counts before normalization alters output
+        if qtype == "es":
+            essay_md = _ensure_essay_points(content, points)
+            essay_md = _ensure_quiz_header(essay_md)
+            return GenerationResult(quiz_markdown=essay_md, raw_response=content)
+
         try:
-            preliminary = parse_quiz(content)
-        except FormatError:
-            # Will be handled again in validate after normalization
-            preliminary = []
-        if preliminary:
-            if qtype == "cl" and blanks is not None and blanks > 0:
-                for q in preliminary:
-                    if q.question_type == "Cloze":
-                        blank_count = len(re.findall(r"\{[^}]+\}", q.body or ""))
-                        if blank_count != blanks:
-                            raise FormatError(
-                                f"Cloze question has {blank_count} blanks but --blanks {blanks} was requested."
-                            )
-            if qtype == "ma" and pairs is not None and pairs > 0:
-                for q in preliminary:
-                    if q.question_type == "Matching":
-                        pair_count = len(q.pairs or [])
-                        if pair_count < pairs:
-                            raise FormatError(
-                                f"Matching question has {pair_count} pairs but at least {pairs} were requested."
-                            )
-        
-        quiz_md = normalize_quiz(
-            content,
-            num_correct=num_correct,
-            num_incorrect=num_incorrect,
-            pairs=pairs if qtype == "ma" else None,
-        )
-        validate_quiz(quiz_md, expected_questions=questions)
+            # Early parse to enforce blank/pair counts before normalization alters output
+            try:
+                preliminary = parse_quiz(content)
+            except FormatError:
+                # Will be handled again in validate after normalization
+                preliminary = []
+            if preliminary:
+                if qtype == "cl" and blanks is not None and blanks > 0:
+                    for q in preliminary:
+                        if q.question_type == "Cloze":
+                            blank_count = len(re.findall(r"\{[^}]+\}", q.body or ""))
+                            if blank_count != blanks:
+                                raise FormatError(
+                                    f"Cloze question has {blank_count} blanks but --blanks {blanks} was requested."
+                                )
+                if qtype == "ma" and pairs is not None and pairs > 0:
+                    for q in preliminary:
+                        if q.question_type == "Matching":
+                            pair_count = len(q.pairs or [])
+                            if pair_count < pairs:
+                                raise FormatError(
+                                    f"Matching question has {pair_count} pairs but at least {pairs} were requested."
+                                )
+
+            quiz_md = normalize_quiz(
+                content,
+                num_correct=num_correct,
+                num_incorrect=num_incorrect,
+                pairs=pairs if qtype == "ma" else None,
+            )
+            validate_quiz(quiz_md, expected_questions=questions)
+        except FormatError as e:
+            # Keep the raw model output so callers can still write an .md file for inspection.
+            raise GenerationFormatError(str(e), raw_response=content) from e
 
         return GenerationResult(quiz_markdown=quiz_md, raw_response=content)
 
@@ -605,7 +977,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         description="Generate a multiple-choice quiz from a text file.",
         epilog=DISCLAIMER,
     )
-    p.add_argument("input", type=Path, help="Path to input text file")
+    p.add_argument("input", nargs="+", help="Path(s) or glob pattern(s) to input text/readable PDF file(s)")
     # Default questions: 4 for Multi-choice, 1 for Cloze, 2 for Matching
     p.add_argument("--questions", "-q", type=int, default=4, help="Number of questions (default: 4 for Multi-choice)")
     p.add_argument(
@@ -613,10 +985,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "-o",
         type=Path,
         required=False,
-        help="Output path: file path or directory (default: <input-stem>-questions.md in same folder)",
+        help="Output path: file path or directory (default: <input-stem>-<type>-<provider>.md in same folder)",
     )
-    p.add_argument("--model", default="gpt-5", help="OpenAI model name (default: gpt-5)")
-    p.add_argument("--points", "-p", type=int, default=4, help="Points per question (default: 4)")
+    p.add_argument(
+        "-p","--provider",
+        choices=["openai", "gemini", "claude"],
+        default="openai",
+        help="LLM provider: openai, gemini, or claude (default: openai)",
+    )
+    p.add_argument(
+        "--model",
+        default=None,
+        help="Model name (default depends on --provider)",
+    )
+    p.add_argument("--points", type=int, default=4, help="Points per question (default: 4)")
     p.add_argument(
         "--answers",
         "-a",
@@ -629,9 +1011,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument(
         "--type",
         "-t",
-        choices=["mc", "cl", "ma"],
+        choices=["mc", "cl", "ma", "es"],
         default="mc",
-        help="Question type: mc=Multi-choice, cl=Cloze, ma=Matching (default: mc)",
+        help="Question type: mc=Multi-choice, cl=Cloze, ma=Matching, es=Essay (default: mc)",
     )
     p.add_argument(
         "--blanks",
@@ -652,72 +1034,159 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         required=False,
         help="Path to configuration file (default: text2mdquiz.cfg in script directory)",
     )
-    return p.parse_args(argv)
+    p.add_argument(
+        "--debug",
+        action="store_true",
+        help="Write provider raw native response JSON next to output when available.",
+    )
+
+    parsed = p.parse_args(argv)
+    provided: set[str] = set()
+    option_map = {
+        "--provider": "provider",
+        "-p": "provider",
+        "--type": "type",
+        "-t": "type",
+        "--questions": "questions",
+        "-q": "questions",
+        "--points": "points",
+        "--answers": "answers",
+        "-a": "answers",
+        "--blanks": "blanks",
+        "--pairs": "pairs",
+    }
+    for token in argv:
+        canonical = option_map.get(token)
+        if canonical:
+            provided.add(canonical)
+    setattr(parsed, "_cli_provided", provided)
+    return parsed
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     
-    if load_dotenv is not None:
-        load_dotenv()
-    
     args = parse_args(argv)
     
     # Load configuration
     config = load_config(args.config)
+    apply_config_defaults(args, config)
+
+    try:
+        input_files = resolve_input_files(args.input)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    if args.output is not None and len(input_files) > 1 and not args.output.is_dir():
+        print("Error: --output must be a directory when multiple input files are provided.", file=sys.stderr)
+        return 1
 
     # Override default questions per type if user did not explicitly set --questions / -q
-    if not any(a in argv for a in ("--questions", "-q")):
+    if "questions" not in getattr(args, "_cli_provided", set()):
         if args.type == "cl":
             args.questions = 1
         elif args.type == "ma":
             args.questions = 2
 
-    # Validate API key presence early
-    api_key = os.getenv("OPENAI_API_KEY", "").strip()
-    if not api_key or api_key.startswith("sk-REPLACE"):
-        print("Error: OPENAI_API_KEY is not set. Create a .env file (see .env.example) or set the env var.", file=sys.stderr)
-        print("Tip (PowerShell): $env:OPENAI_API_KEY='sk-...'  or create .env with OPENAI_API_KEY=sk-...", file=sys.stderr)
-        return 1
+    # Validate provider API key presence early
+    provider = args.provider
+    api_key = _get_provider_api_key(provider)
+    if provider == "openai":
+        if not api_key or api_key.startswith("sk-REPLACE"):
+            print("Error: OPENAI_API_KEY is not set. Create a .env file (see .env.example) or set the env var.", file=sys.stderr)
+            print("Tip (PowerShell): $env:OPENAI_API_KEY='sk-...'  or create .env with OPENAI_API_KEY=sk-...", file=sys.stderr)
+            return 1
+    elif provider == "gemini":
+        if not api_key:
+            print("Error: GEMINI_API_KEY (or GOOGLE_API_KEY) is not set.", file=sys.stderr)
+            print("Tip (PowerShell): $env:GEMINI_API_KEY='...'  or create .env with GEMINI_API_KEY=...", file=sys.stderr)
+            return 1
+    else:  # claude
+        if not api_key:
+            print("Error: ANTHROPIC_API_KEY is not set.", file=sys.stderr)
+            print("Tip (PowerShell): $env:ANTHROPIC_API_KEY='...'  or create .env with ANTHROPIC_API_KEY=...", file=sys.stderr)
+            return 1
 
-    text = args.input.read_text(encoding="utf-8")
+    def _default_output_name(input_path: Path) -> str:
+        type_label_map = {"mc": "multi-choice", "cl": "cloze", "ma": "matching", "es": "essay"}
+        type_label = type_label_map.get(args.type, args.type)
+        return f"{input_path.stem}-{type_label}-{provider}.md"
+
+    def _warning_output_name(input_path: Path) -> str:
+        type_label_map = {"mc": "multi-choice", "cl": "cloze", "ma": "matching", "es": "essay"}
+        type_label = type_label_map.get(args.type, args.type)
+        return f"{input_path.stem}-{type_label}(error).md"
+
+    def _raw_json_output_name(input_path: Path) -> str:
+        type_label_map = {"mc": "multi-choice", "cl": "cloze", "ma": "matching", "es": "essay"}
+        type_label = type_label_map.get(args.type, args.type)
+        return f"{input_path.stem}-{type_label}-raw-response.json"
     
-    # Determine default output path if not provided
-    type_label_map = {"mc": "multi-choice", "cl": "cloze", "ma": "matching"}
-    type_label = type_label_map.get(args.type, args.type)
-    if args.output is None:
-        default_name = f"{args.input.stem}-{type_label}.md"
-        output_path = args.input.with_name(default_name)
-    else:
-        # If output is a directory, use default filename in that directory
-        if args.output.is_dir():
-            default_name = f"{args.input.stem}-{type_label}.md"
-            output_path = args.output / default_name
+    gen = QuizGenerator(model=args.model, provider=args.provider, config=config)
+    num_correct, num_incorrect = args.answers
+    for input_path in input_files:
+        is_pdf_input = input_path.suffix.lower() == ".pdf"
+        input_pdf_path: Path | None = input_path if is_pdf_input else None
+        text = ""
+        if not is_pdf_input:
+            try:
+                text = input_path.read_text(encoding="utf-8")
+            except Exception as e:
+                print(f"Error: could not read input text file '{input_path}': {e}", file=sys.stderr)
+                return 1
+
+        if args.output is None:
+            output_path = input_path.with_name(_default_output_name(input_path))
+        elif args.output.is_dir():
+            output_path = args.output / _default_output_name(input_path)
         else:
             output_path = args.output
-    
-    gen = QuizGenerator(model=args.model, config=config)
-    num_correct, num_incorrect = args.answers
-    try:
-        result = gen.generate(
-            text=text,
-            questions=args.questions,
-            points=args.points,
-            num_correct=num_correct,
-            num_incorrect=num_incorrect,
-            qtype=args.type,
-            blanks=args.blanks if args.type == "cl" else None,
-            pairs=args.pairs if args.type == "ma" else None,
-        )
-    except Exception as e:
-        msg = str(e)
-        print(f"Error: {msg}", file=sys.stderr)
-        if "model" in msg.lower() and ("not found" in msg.lower() or "does not exist" in msg.lower()):
-            print("Hint: The default model 'gpt-5' may not be available to your account. Try --model gpt-4o-mini", file=sys.stderr)
-        return 1
 
-    output_path.write_text(result.quiz_markdown, encoding="utf-8")
-    print(f"Wrote quiz to {output_path}")
+        try:
+            result = gen.generate(
+                text=text,
+                questions=args.questions,
+                points=args.points,
+                num_correct=num_correct,
+                num_incorrect=num_incorrect,
+                qtype=args.type,
+                blanks=args.blanks if args.type == "cl" else None,
+                pairs=args.pairs if args.type == "ma" else None,
+                input_pdf_path=input_pdf_path,
+            )
+        except GenerationFormatError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            output_path.write_text(e.quiz_markdown, encoding="utf-8")
+            print(f"Wrote raw model output to {output_path} despite format error.", file=sys.stderr)
+            return 1
+        except Exception as e:
+            msg = str(e)
+            print(f"Error: {msg}", file=sys.stderr)
+            if "model" in msg.lower() and ("not found" in msg.lower() or "does not exist" in msg.lower()):
+                suggested = {
+                    "openai": "gpt-4o-mini",
+                    "gemini": "gemini-2.5-flash",
+                    "claude": "claude-3-5-sonnet-latest",
+                }[args.provider]
+                print(
+                    f"Hint: The selected model may not be available to your account. Try --model {suggested}",
+                    file=sys.stderr,
+                )
+            return 1
+
+        output_path.write_text(result.quiz_markdown, encoding="utf-8")
+        print(f"Wrote quiz to {output_path}")
+
+        if result.validation_warning:
+            warnings.warn(f"Quiz validation failed: {result.validation_warning}", UserWarning)
+            warning_output = output_path.with_name(_warning_output_name(input_path))
+            warning_output.write_text(result.quiz_markdown, encoding="utf-8")
+
+        if args.debug and result.raw_native_response_json:
+            raw_json_output = output_path.with_name(_raw_json_output_name(input_path))
+            raw_json_output.write_text(result.raw_native_response_json, encoding="utf-8")
+
     return 0
 
 

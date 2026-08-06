@@ -128,3 +128,30 @@ def test_multi_choice_rationale_ignored():
     assert any("Rationale" not in t for t in texts)
     norm = normalize_quiz(md)
     assert "Rationale" not in norm
+
+
+def test_multi_choice_trailing_space_after_star_is_correct():
+    md = (
+        "# Quiz\n"
+        "## Multi-choice: Frage 1\n"
+        "- Richtige Antwort*   \n"
+        "- Falsche Antwort\n"
+    )
+    q = parse_quiz(md)
+    assert len(q[0].answers) == 2
+    assert sum(a.is_correct for a in q[0].answers) == 1
+    assert q[0].answers[0].text == "Richtige Antwort"
+
+
+def test_multi_choice_allows_blank_line_after_heading_with_explanations():
+    md = (
+        "## Multi-choice: Frage 1 [4]\n"
+        "\n"
+        "- Richtige Antwort* [[K2 rationale]]\n"
+        "- Falsche Antwort [[K2 distractor rationale]]\n"
+    )
+    q = parse_quiz(md)
+    assert len(q) == 1
+    assert len(q[0].answers) == 2
+    assert sum(a.is_correct for a in q[0].answers) == 1
+    assert q[0].answers[0].text == "Richtige Antwort"

@@ -3,16 +3,17 @@
 [![Python 3.14+](https://img.shields.io/badge/python-3.14+-blue.svg)](https://www.python.org/downloads/)
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC%20BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 
-Python CLI tool to generate educational quizzes from text files using OpenAI's GPT API. Supports **Multi-choice**, **Cloze** (Lückentext/fill-in-the-blank), and **Matching** questions. The quiz language automatically matches the input text (multi-language support, especially German).
+Python CLI tool to generate educational quizzes from text and readable PDF files using OpenAI, Google Gemini, or Anthropic Claude APIs. Supports **Multi-choice**, **Cloze** (Lückentext/fill-in-the-blank), **Matching**, and **Essay** questions. The quiz language automatically matches the input text (multi-language support, especially German).
 
 Perfect for K-12 educators creating quizzes from study materials!
 
 ## Features
 
-- 🎯 **Three question types**: Multi-choice, Cloze, Matching
+- 🎯 **Four question types**: Multi-choice, Cloze, Matching, Essay
 - 🌍 **Multi-language support**: Quiz language matches input text
 - ⚙️ **Highly configurable**: Control points, answer counts, blanks, pairs
 - 📝 **Markdown output**: Clean, standardized format
+- ⚠️ **Graceful invalid-output handling**: Validation failures warn and still write a quiz file
 - 🧪 **Well-tested**: Comprehensive test suite included
 
 ## Quick Start
@@ -30,11 +31,14 @@ Perfect for K-12 educators creating quizzes from study materials!
    ```bash
    pip install -r requirements.txt
    ```
-3. **Set up your OpenAI API key**:
+3. **Set up your API key(s)**:
 
    ```bash
    cp .env.example .env
-   # Edit .env and add your OPENAI_API_KEY
+   # Edit .env and add one or more keys:
+   # OPENAI_API_KEY=...
+   # GEMINI_API_KEY=...   (or GOOGLE_API_KEY=...)
+   # ANTHROPIC_API_KEY=...
    ```
 
    Or set it directly in PowerShell/bash:
@@ -42,11 +46,15 @@ Perfect for K-12 educators creating quizzes from study materials!
    ```powershell
    # PowerShell
    $env:OPENAI_API_KEY='sk-your-actual-key-here'
+   $env:GEMINI_API_KEY='your-gemini-key'
+   $env:ANTHROPIC_API_KEY='your-anthropic-key'
    ```
 
    ```bash
    # Bash
    export OPENAI_API_KEY='sk-your-actual-key-here'
+   export GEMINI_API_KEY='your-gemini-key'
+   export ANTHROPIC_API_KEY='your-anthropic-key'
    ```
 
 ### Basic Usage
@@ -55,6 +63,31 @@ Generate a multi-choice quiz with default settings:
 
 ```bash
 python text2mdquiz.py input.txt
+```
+
+Use a readable PDF as input:
+
+```bash
+python text2mdquiz.py input.pdf
+```
+
+Generate quizzes for multiple files at once:
+
+```bash
+python text2mdquiz.py lesson1.txt lesson2.txt
+```
+
+Use a glob pattern (relative or absolute):
+
+```bash
+python text2mdquiz.py samples/*.txt
+python text2mdquiz.py "C:/materials/**/*.txt"
+```
+
+Write provider-native raw response JSON alongside normal output (debug mode):
+
+```bash
+python text2mdquiz.py input.txt --debug
 ```
 
 Generate a Cloze (fill-in-the-blank) quiz:
@@ -67,6 +100,12 @@ Generate a Matching quiz:
 
 ```bash
 python text2mdquiz.py input.txt --type ma
+```
+
+Generate an Essay quiz:
+
+```bash
+python text2mdquiz.py input.txt --type es
 ```
 
 ### Examples
@@ -82,22 +121,33 @@ python text2mdquiz.py samples/example-physics-de.txt --type cl --questions 2 --b
 
 # Matching: 1 question with 8 pairs
 python text2mdquiz.py samples/example-physics-de.txt --type ma --pairs 8
+
+# Use Gemini instead of OpenAI
+python text2mdquiz.py samples/example-physics-de.txt --provider gemini --model gemini-2.5-flash
+
+# Use Claude
+python text2mdquiz.py samples/example-physics-de.txt --provider claude --model claude-3-5-sonnet-latest
+
+# Essay questions
+python text2mdquiz.py samples/example-physics-de.txt --type es
 ```
 
 ## Command-Line Options
 
 
-| Option               | Default                                    | Description                                                                 |
-| ---------------------- | -------------------------------------------- | ----------------------------------------------------------------------------- |
-| `--type` / `-t`      | `mc`                                       | Question type:`mc` (Multi-choice), `cl` (Cloze), `ma` (Matching)            |
-| `--questions` / `-q` | `4` (Multi-choice/Matching)<br>`1` (Cloze) | Number of questions to generate                                             |
-| `--points` / `-p`    | `4`                                        | Points per question (Multi-choice/Matching only; Cloze uses blank weights)  |
-| `--answers` / `-a`   | `2 3`                                      | Correct and incorrect answer counts (Multi-choice only)                     |
-| `--blanks`           | `4`                                        | Number of blanks in Cloze questions                                         |
-| `--pairs`            | `4`                                        | Number of pairs in Matching questions                                       |
-| `--model`            | `gpt-5`                                    | OpenAI model name                                                           |
-| `--config` / `-c`    | `text2mdquiz.cfg`                          | Path to custom configuration file                                           |
-| `--output` / `-o`    | `<input>-<type>.md`                        | Output file path or directory                                               |
+| Option               | Default                                    | Description                                                                |
+| ---------------------- | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| `--type` / `-t`      | from config:`[defaults].type`              | Question type:`mc` (Multi-choice), `cl` (Cloze), `ma` (Matching), `es` (Essay) |
+| `--questions` / `-q` | from config:`[defaults].questions`         | Number of questions to generate                                            |
+| `--points`           | from config:`[defaults].points`            | Points per question (Multi-choice/Matching/Essay; Cloze uses blank weights) |
+| `--answers` / `-a`   | from config:`[multi_choice].answers`       | Correct and incorrect answer counts (Multi-choice only)                    |
+| `--blanks`           | from config:`[cloze].blanks`               | Number of blanks in Cloze questions                                        |
+| `--pairs`            | from config:`[matching].pairs`             | Number of pairs in Matching questions                                      |
+| `--provider` / `-p`  | from config:`[defaults].provider`          | LLM provider:`openai`, `gemini`, `claude`                                  |
+| `--model`            | provider-specific                          | Model name (default:`gpt-5`, `gemini-2.5-pro`, `claude-sonnet-4-6`)        |
+| `--config` / `-c`    | `text2mdquiz.cfg`                          | Path to custom configuration file                                          |
+| `--output` / `-o`    | `<input>-<type>-<provider>.md`             | Output file path or directory; with multiple inputs this must be a directory; validation failures write `<input>-<type>(error).md` |
+| `--debug`            | off                                        | Also write provider-native raw response as `<input>-<type>-raw-response.json` when available |
 
 ## Configuration and Prompt Files
 
@@ -115,23 +165,37 @@ If the config file is missing or incomplete, the tool will display an error mess
 
 ### Configuration Format
 
-The config file uses INI format with three sections (one per question type). Each section points to external prompt/example files:
+The config file uses INI format with a required `[defaults]` section and four question-type sections. CLI options override these defaults when explicitly provided.
 
 ```ini
+[defaults]
+provider = openai
+type = mc
+questions = 4
+points = 4
+
 [multi_choice]
+answers = 2 3
 system_prompt_file = prompts/mc_system.txt
 user_prompt_file = prompts/mc_user.txt
 example_file = prompts/mc_example.md
 
 [cloze]
+blanks = 4
 system_prompt_file = prompts/cloze_system.txt
 user_prompt_file = prompts/cloze_user.txt
 example_file = prompts/cloze_example.md
 
 [matching]
+pairs = 4
 system_prompt_file = prompts/matching_system.txt
 user_prompt_file = prompts/matching_user.txt
 example_file = prompts/matching_example.md
+
+[essay]
+system_prompt_file = prompts/essay_system.txt
+user_prompt_file = prompts/essay_user.txt
+example_file = prompts/essay_example.md
 ```
 
 All file paths can be absolute or relative to the directory containing `text2mdquiz.py`.
@@ -141,6 +205,7 @@ All file paths can be absolute or relative to the directory containing `text2mdq
 Templates in the `user_prompt_file` contents (or inline `user_prompt`, if you add one) can use these placeholders (automatically filled from CLI arguments):
 
 **Multi-choice:**
+
 - `{num_questions}` - Number of questions
 - `{points_str}` - Points per question (e.g., "[4]")
 - `{total_answers}` - Total answers per question (correct + incorrect)
@@ -148,13 +213,19 @@ Templates in the `user_prompt_file` contents (or inline `user_prompt`, if you ad
 - `{num_incorrect}` - Number of incorrect answers
 
 **Cloze:**
+
 - `{num_questions}` - Number of questions
 - `{gaps_spec}` - Description of blanks (e.g., "exactly 4 blanks")
 
 **Matching:**
+
 - `{num_questions}` - Number of questions
 - `{points_str}` - Points per question (e.g., "[4]")
 - `{pairs_spec}` - Description of pairs (e.g., "exactly 4 pairs")
+
+**Essay:**
+
+- `{num_questions}` - Number of questions
 
 ### Attachment Files (Optional)
 
@@ -188,13 +259,18 @@ To create quizzes with a more formal tone for multi-choice questions:
 
 ### Fallback Behavior
 
-- The configuration file and all required sections (`[multi_choice]`, `[cloze]`, `[matching]`) are **mandatory**.
+- The configuration file and all required sections (`[defaults]`, `[multi_choice]`, `[cloze]`, `[matching]`, `[essay]`) are **mandatory**.
+- Required default options: `[defaults].provider`, `[defaults].type`, `[defaults].questions`, `[defaults].points`, `[multi_choice].answers`, `[cloze].blanks`, `[matching].pairs`.
 - Each section must contain either `system_prompt_file` or an inline `system_prompt`, and either `user_prompt_file` or an inline `user_prompt`.
 - `example_file` is optional; if present and the file exists, its contents are appended as an example block. If omitted or the file is missing, examples are simply skipped.
 
 ## Output Format
 
 All quizzes start with a `# Quiz` header. Each question type has its own format:
+
+If final quiz validation fails after normalization, the CLI emits a warning instead of stopping. It still writes the generated quiz file and appends `(error)` to the basename before the extension, for example `lesson-multi-choice(error).md`.
+
+If `--debug` is enabled and a provider-native payload is available, the CLI also writes a JSON artifact named `<input>-<type>-raw-response.json` next to the generated markdown output.
 
 ### Multi-choice
 
@@ -246,6 +322,20 @@ Energie ist die Fähigkeit durch ihre Umwandlung etwas zu {1:bewirken}. Energie 
 - Format: `- Left term = Right term`
 - Default: 4 pairs (configurable via `--pairs`)
 - Points in square brackets
+
+### Essay
+
+```markdown
+## Essay: Erkläre den Energieerhaltungssatz. [4]
+Beschreibe mit einem realen Beispiel, wie Energie umgewandelt wird.
+{Energie wird nicht erzeugt oder vernichtet, sondern nur umgewandelt.}
+```
+
+**Rules:**
+
+- Format: `## Essay: <short instruction or title> [points]`
+- The CLI preserves the provider's essay text but ensures each essay heading includes the configured points value.
+- The prompt template asks for a sample answer in curly braces after the question.
 
 ## Development
 
@@ -312,4 +402,5 @@ python text2mdquiz.py input.txt --model gpt-4o-mini
 
 - Check your input text is substantial (at least a few sentences)
 - Try reducing `--questions` or `--blanks`/`--pairs` counts
-- The model may occasionally produce invalid format; retry or adjust prompt
+- The model may occasionally produce invalid format; the CLI now warns and still writes the file with `(error)` appended to the basename
+- Review `(error)` files before use; retry or adjust prompts/config if the format is not acceptable
