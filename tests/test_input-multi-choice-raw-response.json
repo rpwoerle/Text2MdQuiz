@@ -1,0 +1,34 @@
+{
+  "provider": "claude",
+  "model": "claude-sonnet-4-6",
+  "response": {
+    "id": "msg_01CaWByYTBuX7Uqxzk2vCcUD",
+    "container": null,
+    "content": [
+      {
+        "citations": null,
+        "text": "## Multi-choice: Zwei Skateboarder fahren eine gerade Strecke entlang. Skater Rot legt in jeder Sekunde 15 cm zurück, Skater Grün legt in jeder Sekunde 25 cm zurück. Was kann man aus diesen Daten korrekt schlussfolgern? [4]\n\n- Im Weg-Zeit-Diagramm verläuft die Linie von Skater Grün steiler als die von Skater Rot, weil Grün in gleicher Zeit einen größeren Weg zurücklegt.* [[Analyse/K2 – Schüler müssen die Beziehung zwischen Steigung im Diagramm und zurückgelegtem Weg pro Zeiteinheit auf neue Zahlenwerte anwenden; entspricht dem Kernprinzip des Textes.]]\n- Die Geschwindigkeit von Skater Rot beträgt 15 cm/s, die von Skater Grün 25 cm/s, da Geschwindigkeit als Weg geteilt durch Zeit berechnet wird.* [[Anwendung/K2 – Schüler wenden die Formel V = S/T auf neue konkrete Werte an, anstatt sie nur zu nennen.]]\n- Im Weg-Zeit-Diagramm verläuft die Linie von Skater Rot steiler, weil er weniger Energie verbraucht und daher effizienter fährt. [[Plausible Fehlvorstellung/K2-Distraktor – Verwechslung von Steigung mit Effizienz; klingt physikalisch, ist aber inhaltlich falsch und lenkt von der korrekten Interpretation der Steigung ab.]]\n- Da beide Skater geradlinig und gleichförmig fahren, ist ihre Geschwindigkeit identisch, solange sie dieselbe Strecke zurücklegen. [[Plausible Fehlvorstellung/K2-Distraktor – Verwechslung von zurückgelegter Gesamtstrecke mit Geschwindigkeit; typischer Irrtum, der Strecke und Schnelligkeit gleichsetzt.]]\n- Nach 4 Sekunden hat Skater Grün einen Vorsprung von 25 cm gegenüber Skater Rot, weil Grün pro Sekunde 25 cm fährt. [[Plausible Rechenfehlvorstellung/K2-Distraktor – Der tatsächliche Abstand nach 4 Sekunden beträgt (25−15)×4 = 40 cm; der Wert 25 cm klingt plausibel, da er der Sekunden-Geschwindigkeit von Grün entspricht, ist aber falsch berechnet.]]",
+        "type": "text"
+      }
+    ],
+    "model": "claude-sonnet-4-6",
+    "role": "assistant",
+    "stop_reason": "end_turn",
+    "stop_sequence": null,
+    "type": "message",
+    "usage": {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "global",
+      "input_tokens": 2821,
+      "output_tokens": 694,
+      "server_tool_use": null,
+      "service_tier": "standard"
+    },
+    "stop_details": null
+  }
+}

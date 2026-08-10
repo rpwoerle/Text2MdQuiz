@@ -1,0 +1,6 @@
+## Multi-choice: sample question? [points_str]
+- Wrong answer [[explanation]]
+- Correct answer* [[explanation]]
+- Wrong answer [[explanation]]
+- Correct answer* [[explanation]]
+- Wrong answer [[explanation]]

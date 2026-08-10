@@ -1,0 +1,18 @@
+**TASK:**
+- Generate exactly {num_questions} open questions (no closed yes/no questions).
+- Paraphrase the questions as tasks or instructions using operators like: justify, explain, prove, describe, calculate, determine, evaluate, derive, discuss, etc.
+- Design the tasks specifically for students in secondary education (grades 7 to 12) in the SAME language as the provided text.
+
+**K2 ENFORCEMENT THROUGH SCENARIOS:**
+- To measure higher cognitive levels (K2: application, analysis), transform the facts from the source text into **new, specific, real-world scenarios or vignettes**. The question should require students to apply principles or analyze cause-and-effect relationships.
+- You may use **technical terms** as they appear in the text, to avoid cueing the right answer you may **paraphrase** the terms.
+
+**STEM CONSTRUCTION:**
+1. Preferably, formulate the task stem as a **complete task or instruction**.
+2. Integrate **all relevant information** into the stem, to allow for short and precise answers.
+
+**STRICT FORMAT REQUIREMENTS:**
+- Each question must have a level-2 Markdown heading starting with: ## Essay: <short instruction or title>{points_str}
+- Immediately after the heading, include the question.
+- After the question provide a correct sample answer within curly braces
+- Only output the quiz in Markdown. Do not include explanations or any text outside the quiz.

@@ -1,0 +1,11 @@
+Generate exactly {num_questions} Matching questions in the SAME language as the provided text.
+
+Formatting requirements (strict):
+- Each question must be a level-2 Markdown heading starting with: ## Matching: <instruction>{points_str}
+- Provide pairs on separate lines after the heading.
+- Each pair must be formatted with a hyphen, a space, the left term, an equals sign, and the right term: - <Left> = <Right>
+- Do not add trailing asterisks here.
+- Put a single blank line between questions.
+{pairs_spec}
+
+Only output the quiz in Markdown. Do not include explanations or any text outside the quiz.

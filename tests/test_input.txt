@@ -1,0 +1,70 @@
+Heute geht es um getrickste Moves und um das Thema Bewegung.
+Genauer gesagt geht es um Geschwindigkeit.
+V ist gleich S durch T oder ein Weg-Zeit-Diagramm. Davon habt ihr vielleicht schon mal gehört.
+Und was das alles bedeutet, das erklären wir euch heute.
+Heute erklären wir euch Bewegung mit Hilfe von einem Skateboarder.
+Aber wir nehmen jemand, der es besser kann als wir.
+Ja, das ist ja ganz schön abgefahren, was unser kleiner Skater alles so kann.
+Lass uns aber mal mit den einfachsten Teilen Bewegung anfangen.
+Das ist der Abschnitt, in dem unser kleiner Skateboarder mit gleichem Tempo von links nach rechts düst.
+Und wenn der gleich bleiben schnell fährt, dann nennen wir das gleichförmig.
+Unfall der geradeaus fährt und keine Schlangenlinien, nennen wir die Bewegung auch Gradlinig.
+Es ist also eine gleichförmige, gradlinige Bewegung.
+Aber selbst diese einfache Bewegung ist nicht bei allen Skatern gleich.
+Und deshalb schicken wir jetzt einfach mal zwei Skateboarder ins Rennen.
+Ja, der Blau ist wohl schneller.
+Der kommt zuerst hier hinten an.
+Ja, dann lass doch mal die Stop-Ohren mitlaufen und wir schauen Sekunde für Sekunde, was da genau passiert.
+Wenn wir uns die Bewegung der beiden Skater jetzt mal Sekunde für Sekunde anschauen,
+dann sehen wir, dass der Blau Skater in den einzelnen Sekunden Abschnitten
+einen größeren Weg zurücklegt als der gelbe Skater.
+Und um das jetzt nochmal genauer zu untersuchen, legen wir den Lineal an
+und messen die einzelnen Wegabschnitte.
+Nach einer Sekunde hat der gelbe 13 Zentimeter zurückgelegt und der Blaue 20.
+Und nach zwei Sekunden sind es dann 26 Zentimeter und 40.
+Und um das Zahlenklaus ein bisschen zu ordnen, basteln wir uns eine Wertetabelle mit drei Spalten.
+In die erste Spalte schreiben wir die Zeit rein.
+In die zweite kommt der abgeskatete Weg vom gelben Skater.
+In die dritte Spalte tragen wir den abgeskateten Weg vom blauen Skater ein.
+In der Physik sagt man dazu, das ist der zurückgelegte Weg.
+Jetzt haben wir so eine schicke Wertetabelle, da kann man sich aber nicht so viel darunter vorstellen.
+Und deswegen malen wir aus unserem Zahlensalat mal einen Graf.
+Ein Graf ist also ein Diagramm mit zwei Achsen.
+Auf der unteren Achse tragen wir die Zeit ein und auf der Achse nach oben, da kommt der Weg hin.
+Und das nennen wir dann ein Weg-Zeitdiagramm.
+Okay, dann lass uns aber den gelben Skater einzeichen.
+Er fährt jetzt ja von links nach rechts.
+In unserem Weg-Zeitdiagramm ist er bei der Weg von unten nach oben.
+Und deswegen drehen wir jetzt einfach mal das Bild so, dass auch der Skater von unten nach oben fährt.
+Okay, jetzt müssen wir noch die Zeit berücksichtigen.
+Nach einer Sekunde ist der 13cm weit gefahren.
+Nach zwei, 26, nach drei, 39, nach vier, 52 und nach fünf, 65cm.
+Mit dem blauen Skater machen wir genau das gleiche.
+Nach einer Sekunde ist der 20cm weit gefahren. Nach zwei, 40, 60, 80, 100.
+Hier haben wir also unser Meisterwerk, das Weg-Zeitdiagramm.
+Und wir sehen zwei Linien, die gelbe vom gelben Skater und die blaue vom Blauen.
+Und die gelbe ist etwas flacher, wohingegen die blaue ein bisschen steiler ist.
+Jetzt war der blaue Skater ja schneller und der hat eine steilere Linie.
+Das heißt, je steiler die Linie ist, desto schneller ist etwas.
+Und so sieht das dann aus, wenn wir noch andere Sachen in unser Diagramm einzeichnen.
+Fangen wir mal mit einer Schnecke an, die ist ziemlich langsam und deshalb ist die Linie auch ziemlich flach.
+So sieht ein Fahrrad aus, das ist ein Auto und so steil geht einem Flugzeug.
+Wir sehen also in unserem Weg-Zeitdiagramm, je steiler eine Linie läuft, desto schneller ist etwas.
+Genau das bezeichnet der Begriff Geschwindigkeit.
+Geschwindigkeit ist also der Weg, der in einer bestimmten Zeit zurückgelegt wird.
+Die Frauen Physiker wollen aber nicht so viel schreiben und deswegen nehmen wir für Geschwindigkeit ein V,
+für den Weg ein S und für die Zeit T.
+Das ist Englisch.
+V steht für Velocity, S für Segment und T für Time.
+Und genau daher kommt dann diese mysteriöse Formel, V ist gleich S durch T.
+Jetzt haben wir uns in diesem Video ja ausschließlich mit gleichförmigen Bewegungen beschäftigt.
+Das heißt, unsere Skaters sind weder schneller noch langsamer geworden.
+Was passiert denn jetzt aber, wenn die tatsächlich schneller oder langsamer werden?
+Dafür haben wir ein weiteres Video für euch.
+Da geht es dann um den Begriff der Beschleunigung.
+Falls euch die Folge gefallen hat, dann gibt uns einen Daumen nach oben oder schenkt uns ein Abo.
+Und wenn ihr noch Fragen habt oder irgendwas nicht verstanden habt, schreibt uns einfach ein paar Kommentare.
+Wir sind für euch da und bis zum nächsten Clip.
+14 Sekunden.
+Eigentlich ganz gut schöner.
+Ja, gute Verabschiedung.

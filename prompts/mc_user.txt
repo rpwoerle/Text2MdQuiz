@@ -1,0 +1,22 @@
+**TASK:**
+Generate exactly {num_questions} multiple-choice questions specifically designed for students in secondary education (grades 7 to 12) in the SAME language as the provided text.
+
+**K2 ENFORCEMENT THROUGH SCENARIOS:**
+- To measure higher cognitive levels (K2: application, analysis), you should transform the facts from the source text into **new, specific, real-world scenarios or vignettes**. The question should require students to apply principles or analyze cause-and-effect relationships.
+- You may use **technical terms** as they appear in the text, to avoid cueing the right answer you may paraphrase the terms.
+
+**STEM CONSTRUCTION:**
+1. Preferably, formulate the task stem as a **complete question** (Direct Question Format).
+2. Integrate **all relevant information** into the stem, to keep the answer options as short and precise as possible.
+
+**STRICT FORMAT REQUIREMENTS:**
+- Each question must be a level-2 Markdown heading starting with: "## Multi-choice: " followed by the <question> (including vignettes/scenarios) and the {points_str} in square brackets.
+- Provide exactly {total_answers} answer choices for each question.
+- Each question must be followed immediately by at least 2 lines starting with "-"
+- Start every answer with a hyphen and a space: - <answer>
+- Mark correct answers by adding a trailing asterisk/star: - <answer>*. 
+- There must be at least one correct answer with an asterisk/star. 
+- Provide exactly {num_correct} correct answers per question solely from the provided text.
+- Include exactly {num_incorrect} incorrect answers as distractors, which you may invent, but must be plausible as described in the system prompt.
+- At the end of each answer option, add in double square brackets "[[]]": Cognitive level (application, analysis, or recall / K1/K2) and rationale (justification of cognition and the plausibility of the distractors).
+- Put a single blank line between questions.
