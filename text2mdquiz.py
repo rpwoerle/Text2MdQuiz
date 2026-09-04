@@ -316,7 +316,14 @@ def build_user_prompt(
         # otherwise fall back to the number of questions.
         num_blanks = blanks if blanks is not None and blanks > 0 else num_questions
         spec = prompt_template.format(
+            num_questions=num_questions,
             num_blanks=num_blanks,
+        )
+        # Keep the question count explicit even for existing custom prompt
+        # templates which do not yet use the {num_questions} placeholder.
+        spec = (
+            f"Generate exactly {num_questions} separate cloze question(s), "
+            f"each with exactly {num_blanks} blanks.\n\n{spec}"
         )
         example = example_template if example_template else ""
             
@@ -1125,6 +1132,7 @@ def main(argv: list[str] | None = None) -> int:
     
     gen = QuizGenerator(model=args.model, provider=args.provider, config=config)
     num_correct, num_incorrect = args.answers
+    errors: list[tuple[Path, str]] = []
     for input_path in input_files:
         is_pdf_input = input_path.suffix.lower() == ".pdf"
         input_pdf_path: Path | None = input_path if is_pdf_input else None
@@ -1134,7 +1142,8 @@ def main(argv: list[str] | None = None) -> int:
                 text = input_path.read_text(encoding="utf-8")
             except Exception as e:
                 print(f"Error: could not read input text file '{input_path}': {e}", file=sys.stderr)
-                return 1
+                errors.append((input_path, str(e)))
+                continue
 
         if args.output is None:
             output_path = input_path.with_name(_default_output_name(input_path))
@@ -1156,13 +1165,12 @@ def main(argv: list[str] | None = None) -> int:
                 input_pdf_path=input_pdf_path,
             )
         except GenerationFormatError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            output_path.write_text(e.quiz_markdown, encoding="utf-8")
-            print(f"Wrote raw model output to {output_path} despite format error.", file=sys.stderr)
-            return 1
+            print(f"Error processing '{input_path}': {e}", file=sys.stderr)
+            errors.append((input_path, str(e)))
+            continue
         except Exception as e:
             msg = str(e)
-            print(f"Error: {msg}", file=sys.stderr)
+            print(f"Error processing '{input_path}': {msg}", file=sys.stderr)
             if "model" in msg.lower() and ("not found" in msg.lower() or "does not exist" in msg.lower()):
                 suggested = {
                     "openai": "gpt-4o-mini",
@@ -1173,7 +1181,8 @@ def main(argv: list[str] | None = None) -> int:
                     f"Hint: The selected model may not be available to your account. Try --model {suggested}",
                     file=sys.stderr,
                 )
-            return 1
+            errors.append((input_path, msg))
+            continue
 
         output_path.write_text(result.quiz_markdown, encoding="utf-8")
         print(f"Wrote quiz to {output_path}")
@@ -1186,6 +1195,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.debug and result.raw_native_response_json:
             raw_json_output = output_path.with_name(_raw_json_output_name(input_path))
             raw_json_output.write_text(result.raw_native_response_json, encoding="utf-8")
+
+    if errors:
+        print(
+            f"Completed with errors for {len(errors)} of {len(input_files)} input file(s):",
+            file=sys.stderr,
+        )
+        for input_path, message in errors:
+            print(f"- {input_path}: {message}", file=sys.stderr)
+        return 1
 
     return 0
 

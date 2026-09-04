@@ -14,6 +14,7 @@ from text2mdquiz import (
     GenerationResult,
     QuizGenerator,
     apply_config_defaults,
+    build_user_prompt,
     load_config,
     main,
     parse_args,
@@ -403,6 +404,44 @@ def test_main_multiple_inputs_writes_one_output_per_input(tmp_path, monkeypatch)
     output_b = tmp_path / "lesson-b-multi-choice-openai.md"
     assert output_a.exists()
     assert output_b.exists()
+
+
+def test_cloze_prompt_includes_requested_question_count():
+    prompt = build_user_prompt(
+        text="Lesson text",
+        num_questions=3,
+        qtype="cl",
+        blanks=2,
+        config=TEST_CONFIG,
+    )
+
+    assert "exactly 3 separate cloze question" in prompt
+    assert "exactly 2 blanks" in prompt
+
+
+def test_main_continues_after_one_input_fails(tmp_path, monkeypatch, capsys):
+    input_a = tmp_path / "lesson-a.txt"
+    input_b = tmp_path / "lesson-b.txt"
+    input_a.write_text("bad input", encoding="utf-8")
+    input_b.write_text("good input", encoding="utf-8")
+
+    def fake_generate(self, **kwargs):
+        if kwargs["text"] == "bad input":
+            raise RuntimeError("test generation failure")
+        return GenerationResult(
+            quiz_markdown="# Quiz\n## Multi-choice: Frage\n- A*\n- B\n",
+            raw_response="## Multi-choice: Frage\n- A*\n- B\n",
+        )
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setattr(QuizGenerator, "generate", fake_generate)
+
+    exit_code = main([str(input_a), str(input_b)])
+
+    assert exit_code == 1
+    assert not (tmp_path / "lesson-a-multi-choice-openai.md").exists()
+    assert (tmp_path / "lesson-b-multi-choice-openai.md").exists()
+    assert "Completed with errors for 1 of 2 input file(s)" in capsys.readouterr().err
 
 
 def test_quizvalidation_cli_from_raw_response_file(tmp_path):

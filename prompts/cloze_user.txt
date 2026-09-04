@@ -1,5 +1,5 @@
 **TASK:**
-- Generate a cloze with exactly {num_blanks} blanks from the text in the SAME language as the provided text.
+- Generate exactly {num_questions} separate cloze questions with exactly {num_blanks} blanks each from the text in the SAME language as the provided text.
 - Keep the text appropriate for students in secondary education (grades 7 to 12)
 
 **K2 ENFORCEMENT THROUGH SCENARIOS:**
